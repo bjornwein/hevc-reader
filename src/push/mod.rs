@@ -163,10 +163,15 @@ impl<H: AccumulatedNalHandler> NalFragmentHandler for NalAccumulator<H> {
 }
 impl<H: AccumulatedNalHandler + std::fmt::Debug> std::fmt::Debug for NalAccumulator<H> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let header = if self.buf.len() >= 2 {
+            Some(&self.buf[0..2])
+        } else {
+            None
+        };
         f.debug_struct("NalAccumulator")
             .field("interest", &self.interest)
             .field("buf", &self.buf)
-            .field("header", &self.buf.first().map(|&h| NalHeader::new(h)))
+            .field("header", &header)
             .field("nal_handler", &self.nal_handler)
             .finish()
     }

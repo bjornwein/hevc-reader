@@ -172,7 +172,7 @@ impl<'buf> Iterator for ParamSetIter<'buf> {
         } else {
             let len = u16::from(self.0[0]) << 8 | u16::from(self.0[1]);
             let data = &self.0[2..];
-            let res = match NalHeader::new(data[0]) {
+            let res = match NalHeader::new([data[0], data[1]]) {
                 Ok(nal_header) => {
                     if nal_header.nal_unit_type() == self.1 {
                         let (data, remainder) = data.split_at(len as usize);

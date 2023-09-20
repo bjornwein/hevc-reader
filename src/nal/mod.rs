@@ -6,7 +6,7 @@
 
 pub mod pps;
 pub mod sei;
-pub mod slice;
+//pub mod slice;
 pub mod sps;
 
 use crate::rbsp;
@@ -15,60 +15,77 @@ use std::fmt;
 
 #[derive(PartialEq, Hash, Debug, Copy, Clone)]
 pub enum UnitType {
-    /// The values `0` and `24`-`31` are unspecified in the H265 spec
-    Unspecified(u8),
-    SliceLayerWithoutPartitioningNonIdr,
-    SliceDataPartitionALayer,
-    SliceDataPartitionBLayer,
-    SliceDataPartitionCLayer,
-    SliceLayerWithoutPartitioningIdr,
-    /// Supplemental enhancement information
-    SEI,
+    /// VCL class
+    /// TODO: better naming (if ever used)
+    SliceSegmentLayerTrailN,
+    SliceSegmentLayerTrailR,
+    SliceSegmentLayerTsaN,
+    SliceSegmentLayerTsaR,
+    SliceSegmentLayerStsaN,
+    SliceSegmentLayerStsaR,
+    SliceSegmentLayerRadlN,
+    SliceSegmentLayerRadlR,
+    SliceSegmentLayerRaslN,
+    SliceSegmentLayerRaslR,
+
+    SliceSegmentLayerBlaWLp,
+    SliceSegmentLayerBlaWRadl,
+    SliceSegmentLayerBlaNLp,
+    SliceSegmentLayerIdrWLp,
+    SliceSegmentLayerIdrNLp,
+    SliceSegmentLayerCraNut,
+
+    /// non-VCL class
+    VideoParameterSet,
     SeqParameterSet,
     PicParameterSet,
     AccessUnitDelimiter,
     EndOfSeq,
     EndOfStream,
     FillerData,
-    SeqParameterSetExtension,
-    PrefixNALUnit,
-    SubsetSeqParameterSet,
-    DepthParameterSet,
-    SliceLayerWithoutPartitioningAux,
-    SliceExtension,
-    SliceExtensionViewComponent,
-    /// The values `17`, `18`, `22` and `23` are reserved for future use by the H265 spec
+    PrefixSEI,
+    SuffixSEI,
+
+    /// The values `10`-`15`, `22`-`31`, `41`-`47` are reserved in the H265 spec
     Reserved(u8),
+    /// The values `48`-`63` are unspecified in the H265 spec
+    Unspecified(u8),
 }
 impl UnitType {
     pub fn for_id(id: u8) -> Result<UnitType, UnitTypeError> {
-        if id > 31 {
+        if id > 63 {
             Err(UnitTypeError::ValueOutOfRange(id))
         } else {
             let t = match id {
-                0 => UnitType::Unspecified(0),
-                1 => UnitType::SliceLayerWithoutPartitioningNonIdr,
-                2 => UnitType::SliceDataPartitionALayer,
-                3 => UnitType::SliceDataPartitionBLayer,
-                4 => UnitType::SliceDataPartitionCLayer,
-                5 => UnitType::SliceLayerWithoutPartitioningIdr,
-                6 => UnitType::SEI,
-                7 => UnitType::SeqParameterSet,
-                8 => UnitType::PicParameterSet,
-                9 => UnitType::AccessUnitDelimiter,
-                10 => UnitType::EndOfSeq,
-                11 => UnitType::EndOfStream,
-                12 => UnitType::FillerData,
-                13 => UnitType::SeqParameterSetExtension,
-                14 => UnitType::PrefixNALUnit,
-                15 => UnitType::SubsetSeqParameterSet,
-                16 => UnitType::DepthParameterSet,
-                17..=18 => UnitType::Reserved(id),
-                19 => UnitType::SliceLayerWithoutPartitioningAux,
-                20 => UnitType::SliceExtension,
-                21 => UnitType::SliceExtensionViewComponent,
-                22..=23 => UnitType::Reserved(id),
-                24..=31 => UnitType::Unspecified(id),
+                0 => UnitType::SliceSegmentLayerTrailN,
+                1 => UnitType::SliceSegmentLayerTrailR,
+                2 => UnitType::SliceSegmentLayerTsaN,
+                3 => UnitType::SliceSegmentLayerTsaR,
+                4 => UnitType::SliceSegmentLayerStsaN,
+                5 => UnitType::SliceSegmentLayerStsaR,
+                6 => UnitType::SliceSegmentLayerRadlN,
+                7 => UnitType::SliceSegmentLayerRadlR,
+                8 => UnitType::SliceSegmentLayerRaslN,
+                9 => UnitType::SliceSegmentLayerRaslR,
+                10..=15 => UnitType::Reserved(id),
+                16 => UnitType::SliceSegmentLayerBlaWLp,
+                17 => UnitType::SliceSegmentLayerBlaWRadl,
+                18 => UnitType::SliceSegmentLayerBlaNLp,
+                19 => UnitType::SliceSegmentLayerIdrWLp,
+                29 => UnitType::SliceSegmentLayerIdrNLp,
+                21 => UnitType::SliceSegmentLayerCraNut,
+                22..=31 => UnitType::Reserved(id),
+                32 => UnitType::VideoParameterSet,
+                33 => UnitType::SeqParameterSet,
+                34 => UnitType::PicParameterSet,
+                35 => UnitType::AccessUnitDelimiter,
+                36 => UnitType::EndOfSeq,
+                37 => UnitType::EndOfStream,
+                38 => UnitType::FillerData,
+                39 => UnitType::PrefixSEI,
+                40 => UnitType::SuffixSEI,
+                41..=47 => UnitType::Reserved(id),
+                48..=63 => UnitType::Unspecified(id),
                 _ => panic!("unexpected {}", id), // shouldn't happen
             };
             Ok(t)
@@ -77,26 +94,35 @@ impl UnitType {
 
     pub fn id(self) -> u8 {
         match self {
+            UnitType::SliceSegmentLayerTrailN => 0,
+            UnitType::SliceSegmentLayerTrailR => 1,
+            UnitType::SliceSegmentLayerTsaN => 2,
+            UnitType::SliceSegmentLayerTsaR => 3,
+            UnitType::SliceSegmentLayerStsaN => 4,
+            UnitType::SliceSegmentLayerStsaR => 5,
+            UnitType::SliceSegmentLayerRadlN => 6,
+            UnitType::SliceSegmentLayerRadlR => 7,
+            UnitType::SliceSegmentLayerRaslN => 8,
+            UnitType::SliceSegmentLayerRaslR => 9,
+
+            UnitType::SliceSegmentLayerBlaWLp => 16,
+            UnitType::SliceSegmentLayerBlaWRadl => 17,
+            UnitType::SliceSegmentLayerBlaNLp => 18,
+            UnitType::SliceSegmentLayerIdrWLp => 19,
+            UnitType::SliceSegmentLayerIdrNLp => 20,
+            UnitType::SliceSegmentLayerCraNut => 21,
+
+            UnitType::VideoParameterSet => 32,
+            UnitType::SeqParameterSet => 33,
+            UnitType::PicParameterSet => 34,
+            UnitType::AccessUnitDelimiter => 35,
+            UnitType::EndOfSeq => 36,
+            UnitType::EndOfStream => 37,
+            UnitType::FillerData => 38,
+            UnitType::PrefixSEI => 39,
+            UnitType::SuffixSEI => 40,
+
             UnitType::Unspecified(v) => v,
-            UnitType::SliceLayerWithoutPartitioningNonIdr => 1,
-            UnitType::SliceDataPartitionALayer => 2,
-            UnitType::SliceDataPartitionBLayer => 3,
-            UnitType::SliceDataPartitionCLayer => 4,
-            UnitType::SliceLayerWithoutPartitioningIdr => 5,
-            UnitType::SEI => 6,
-            UnitType::SeqParameterSet => 7,
-            UnitType::PicParameterSet => 8,
-            UnitType::AccessUnitDelimiter => 9,
-            UnitType::EndOfSeq => 10,
-            UnitType::EndOfStream => 11,
-            UnitType::FillerData => 12,
-            UnitType::SeqParameterSetExtension => 13,
-            UnitType::PrefixNALUnit => 14,
-            UnitType::SubsetSeqParameterSet => 15,
-            UnitType::DepthParameterSet => 16,
-            UnitType::SliceLayerWithoutPartitioningAux => 19,
-            UnitType::SliceExtension => 20,
-            UnitType::SliceExtensionViewComponent => 21,
             UnitType::Reserved(v) => v,
         }
     }
@@ -109,7 +135,7 @@ pub enum UnitTypeError {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct NalHeader(u8);
+pub struct NalHeader(u8, u8);
 
 #[derive(Debug)]
 pub enum NalHeaderError {
@@ -117,33 +143,38 @@ pub enum NalHeaderError {
     ForbiddenZeroBit,
 }
 impl NalHeader {
-    pub fn new(header_value: u8) -> Result<NalHeader, NalHeaderError> {
-        if header_value & 0b1000_0000 != 0 {
+    pub fn new(header_bytes: [u8; 2]) -> Result<NalHeader, NalHeaderError> {
+        if header_bytes[0] & 0b1000_0000 != 0 {
             Err(NalHeaderError::ForbiddenZeroBit)
         } else {
-            Ok(NalHeader(header_value))
+            Ok(NalHeader(header_bytes[0], header_bytes[1]))
         }
     }
 
-    pub fn nal_ref_idc(self) -> u8 {
-        (self.0 & 0b0110_0000) >> 5
+    pub fn nal_unit_type(self) -> UnitType {
+        UnitType::for_id((self.0 & 0b0111_1110) >> 1).unwrap()
     }
 
-    pub fn nal_unit_type(self) -> UnitType {
-        UnitType::for_id(self.0 & 0b0001_1111).unwrap()
+    pub fn nuh_layer_id(self) -> u8 {
+        (((self.0) & 0b0000_0001) << 5) + (((self.1) & 0b1111_1000) >> 3)
+    }
+
+    pub fn nuh_temporal_id(self) -> u8 {
+        (self.1) & 0b0000_0111
     }
 }
-impl From<NalHeader> for u8 {
+impl From<NalHeader> for [u8; 2] {
     fn from(v: NalHeader) -> Self {
-        v.0
+        [v.0, v.1]
     }
 }
 
 impl fmt::Debug for NalHeader {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.debug_struct("NalHeader")
-            .field("nal_ref_idc", &self.nal_ref_idc())
             .field("nal_unit_type", &self.nal_unit_type())
+            .field("nuh_layer_id", &self.nuh_layer_id())
+            .field("nuh_temporal_id", &self.nuh_temporal_id())
             .finish()
     }
 }
@@ -230,7 +261,7 @@ pub trait Nal {
 /// A partially- or completely-buffered [`Nal`] backed by borrowed `&[u8]`s. See [`Nal`] docs.
 #[derive(Clone, Eq, PartialEq)]
 pub struct RefNal<'a> {
-    header: u8,
+    header: [u8; 2],
     complete: bool,
 
     // Non-empty chunks.
@@ -244,8 +275,9 @@ impl<'a> RefNal<'a> {
         for buf in tail {
             debug_assert!(!buf.is_empty());
         }
+        assert!(head.len() >= 2, "RefNal must be non-empty");
         Self {
-            header: *head.first().expect("RefNal must be non-empty"),
+            header: [head[0], head[1]],
             head,
             tail,
             complete,
