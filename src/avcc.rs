@@ -119,7 +119,7 @@ impl<'buf> AvcDecoderConfigurationRecord<'buf> {
         ParamSetIter::new(data, UnitType::PicParameterSet).take(num as usize)
     }
 
-    /// Creates an H264 parser context, using the settings encoded into
+    /// Creates an H265 parser context, using the settings encoded into
     /// this `AvcDecoderConfigurationRecord`.
     ///
     /// In particular, the _sequence parameter set_ and _picture parameter set_ values of this

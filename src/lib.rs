@@ -1,4 +1,4 @@
-//! Parser for H264 bitstream syntax.  Not a video decoder.
+//! Parser for HEVC / H265 bitstream syntax.  Not a video decoder.
 
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms)]
@@ -9,7 +9,7 @@ pub mod nal;
 pub mod push;
 pub mod rbsp;
 
-/// Contextual data that needs to be tracked between evaluations of different portions of H264
+/// Contextual data that needs to be tracked between evaluations of different portions of H265
 /// syntax.
 pub struct Context {
     seq_param_sets: Vec<Option<nal::sps::SeqParameterSet>>,

@@ -46,8 +46,8 @@ pub trait NalFragmentHandler {
 /// Accumulates NALs in an internal buffer and delegates to an [AccumulatedNalHandler].
 ///
 /// ```
-/// use h264_reader::nal::{Nal, RefNal, UnitType};
-/// use h264_reader::push::{NalAccumulator, NalFragmentHandler, NalInterest};
+/// use H265_reader::nal::{Nal, RefNal, UnitType};
+/// use H265_reader::push::{NalAccumulator, NalFragmentHandler, NalInterest};
 /// let mut calls = Vec::new();
 /// let mut acc = NalAccumulator::new(|nal: RefNal<'_>| {
 ///     let nal_unit_type = nal.header().unwrap().nal_unit_type();
@@ -77,8 +77,8 @@ pub trait NalFragmentHandler {
 /// Non-trivial handlers may need to *own* state that can be accessed outside the handler:
 ///
 /// ```
-/// use h264_reader::nal::{Nal, RefNal, UnitType};
-/// use h264_reader::push::{AccumulatedNalHandler, NalAccumulator, NalFragmentHandler, NalInterest};
+/// use H265_reader::nal::{Nal, RefNal, UnitType};
+/// use H265_reader::push::{AccumulatedNalHandler, NalAccumulator, NalFragmentHandler, NalInterest};
 /// struct MyHandler(Vec<UnitType>);
 /// impl AccumulatedNalHandler for MyHandler {
 ///     fn nal(&mut self, nal: RefNal<'_>) -> NalInterest {

@@ -1,14 +1,14 @@
 [package]
-name = "h264-reader"
-version = "0.7.1-dev"
-authors = ["David Holroyd <dave@badgers-in-foil.co.uk>"]
+name = "hevc-reader"
+version = "0.1.0-dev"
+authors = ["Björn Weinehall <bjorn.weinehall@intinor.se>"]
 license = "MIT/Apache-2.0"
-description = "Reader for H264 bitstream syntax"
+description = "Reader for HEVC / H265 bitstream syntax"
 categories = [ "multimedia::video" ]
-keywords = [ "H-264" ]
+keywords = [ "H-265", "HEVC" ]
 readme = "README.md"
-repository = "https://github.com/dholroyd/h264-reader"
-edition = "2018"
+repository = "https://github.com/bjornwein/hevc-reader"
+edition = "2021"
 
 [dependencies]
 bitstream-io = "1.1"
@@ -22,10 +22,10 @@ hex-literal = "0.4.1"
 criterion = "0.5"
 test-case = "3.0.0"
 
-[[bench]]
-name = "bench"
-harness = false
+#[[bench]]
+#name = "bench"
+#harness = false
 
-[profile.bench]
-# for profiling,
-debug = true
+#[profile.bench]
+## for profiling,
+#debug = true

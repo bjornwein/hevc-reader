@@ -1,5 +1,5 @@
 //! A reader for the NAL Unit framing format defined in _ITU-T Recommendation H.264 - Annex B_,
-//! as used when H264 data is embedded in an MPEG2 Transport Stream
+//! as used when H265 data is embedded in an MPEG2 Transport Stream
 
 use log::*;
 use memchr;
@@ -41,9 +41,9 @@ struct InUnitState {
 /// [NalAccumulator]:
 ///
 /// ```
-/// use h264_reader::annexb::AnnexBReader;
-/// use h264_reader::nal::{Nal, RefNal, UnitType};
-/// use h264_reader::push::NalInterest;
+/// use H265_reader::annexb::AnnexBReader;
+/// use H265_reader::nal::{Nal, RefNal, UnitType};
+/// use H265_reader::push::NalInterest;
 ///
 /// let mut calls = Vec::new();
 /// let mut reader = AnnexBReader::accumulate(|nal: RefNal<'_>| {

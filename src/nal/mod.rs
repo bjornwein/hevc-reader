@@ -1,4 +1,4 @@
-//! Types for reading H264 _Network Abstraction Layer_ Units (NAL Units).
+//! Types for reading H265 _Network Abstraction Layer_ Units (NAL Units).
 //!
 //! The data presented must already be in _RBSP_ form (i.e. have been passed through
 //! [`RbspDecoder`](../rbsp/struct.RbspDecoder.html)), where it has been encoded with
@@ -15,7 +15,7 @@ use std::fmt;
 
 #[derive(PartialEq, Hash, Debug, Copy, Clone)]
 pub enum UnitType {
-    /// The values `0` and `24`-`31` are unspecified in the H264 spec
+    /// The values `0` and `24`-`31` are unspecified in the H265 spec
     Unspecified(u8),
     SliceLayerWithoutPartitioningNonIdr,
     SliceDataPartitionALayer,
@@ -37,7 +37,7 @@ pub enum UnitType {
     SliceLayerWithoutPartitioningAux,
     SliceExtension,
     SliceExtensionViewComponent,
-    /// The values `17`, `18`, `22` and `23` are reserved for future use by the H264 spec
+    /// The values `17`, `18`, `22` and `23` are reserved for future use by the H265 spec
     Reserved(u8),
 }
 impl UnitType {
@@ -155,8 +155,8 @@ impl fmt::Debug for NalHeader {
 ///
 ///
 /// ```
-/// use h264_reader::nal::{Nal, RefNal, UnitType};
-/// use h264_reader::rbsp::BitRead;
+/// use H265_reader::nal::{Nal, RefNal, UnitType};
+/// use H265_reader::rbsp::BitRead;
 /// use std::io::{ErrorKind, Read};
 /// let nal_bytes = &b"\x68\x12\x34\x00\x00\x03\x00\x86"[..];
 /// let nal = RefNal::new(nal_bytes, &[], true);
