@@ -32,7 +32,8 @@ enum ParseState {
     Start,
     OneZero,
     TwoZero,
-    HeaderByte,
+    HeaderByte1,
+    HeaderByte2,
     Three,
     PostThree,
 }
@@ -66,7 +67,7 @@ impl<R: BufRead> ByteReader<R> {
     pub fn new(inner: R) -> Self {
         Self {
             inner,
-            state: ParseState::HeaderByte,
+            state: ParseState::HeaderByte1,
             i: 0,
             max_fill: 128,
         }
@@ -112,7 +113,13 @@ impl<R: BufRead> ByteReader<R> {
                     }
                     _ => self.state = ParseState::Start,
                 },
-                ParseState::HeaderByte => {
+                ParseState::HeaderByte1 => {
+                    debug_assert_eq!(self.i, 0);
+                    self.inner.consume(1);
+                    self.state = ParseState::HeaderByte2;
+                    break;
+                }
+                ParseState::HeaderByte2 => {
                     debug_assert_eq!(self.i, 0);
                     self.inner.consume(1);
                     self.state = ParseState::Start;
@@ -192,7 +199,7 @@ impl<R: BufRead> BufRead for ByteReader<R> {
 pub fn decode_nal<'a>(nal_unit: &'a [u8]) -> Result<Cow<'a, [u8]>, std::io::Error> {
     let mut reader = ByteReader {
         inner: nal_unit,
-        state: ParseState::HeaderByte,
+        state: ParseState::HeaderByte1,
         i: 0,
         max_fill: usize::MAX, // to borrow if at all possible.
     };
