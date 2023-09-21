@@ -2,6 +2,8 @@ use super::sps;
 use crate::rbsp::BitRead;
 use crate::{rbsp, Context};
 
+// TODO: this is unchanged from H264 parser, so completely incorrect for H265
+
 #[derive(Debug)]
 pub enum PpsError {
     RbspReaderError(rbsp::BitReaderError),
@@ -9,7 +11,7 @@ pub enum PpsError {
     InvalidNumSliceGroupsMinus1(u32),
     InvalidNumRefIdx(&'static str, u32),
     InvalidSliceGroupChangeType(u32),
-    UnknownSeqParamSetId(ParamSetId),
+    UnknownSeqParamSetId(ParamSetId<15>),
     BadPicParamSetId(ParamSetIdError),
     BadSeqParamSetId(ParamSetIdError),
     ScalingMatrix(sps::ScalingMatrixError),
@@ -151,6 +153,7 @@ impl PicScalingMatrix {
     ) -> Result<Option<PicScalingMatrix>, PpsError> {
         let pic_scaling_matrix_present_flag = r.read_bool("pic_scaling_matrix_present_flag")?;
         Ok(if pic_scaling_matrix_present_flag {
+            /*
             let mut scaling_list4x4 = vec![];
             let mut scaling_list8x8 = vec![];
 
@@ -175,6 +178,7 @@ impl PicScalingMatrix {
                     }
                 }
             }
+            */
             Some(PicScalingMatrix {})
         } else {
             None
@@ -212,13 +216,13 @@ pub enum ParamSetIdError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ParamSetId(u8);
-impl ParamSetId {
-    pub fn from_u32(id: u32) -> Result<ParamSetId, ParamSetIdError> {
-        if id > 31 {
+pub struct ParamSetId<const MAX: u32>(u8);
+impl<const MAX: u32> ParamSetId<MAX> {
+    pub fn from_u32(id: u32) -> Result<Self, ParamSetIdError> {
+        if id > MAX {
             Err(ParamSetIdError::IdTooLarge(id))
         } else {
-            Ok(ParamSetId(id as u8))
+            Ok(Self(id as u8))
         }
     }
     pub fn id(self) -> u8 {
@@ -226,10 +230,13 @@ impl ParamSetId {
     }
 }
 
+pub type PicParamSetId = ParamSetId<63>;
+pub type SeqParamSetId = ParamSetId<15>;
+
 #[derive(Clone, Debug)]
 pub struct PicParameterSet {
-    pub pic_parameter_set_id: ParamSetId,
-    pub seq_parameter_set_id: ParamSetId,
+    pub pic_parameter_set_id: PicParamSetId,
+    pub seq_parameter_set_id: SeqParamSetId,
     pub entropy_coding_mode_flag: bool,
     pub bottom_field_pic_order_in_frame_present_flag: bool,
     pub slice_groups: Option<SliceGroup>,

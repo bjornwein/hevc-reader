@@ -5,7 +5,7 @@
 //! 'emulation prevention bytes'.
 
 pub mod pps;
-pub mod sei;
+//pub mod sei;
 //pub mod slice;
 pub mod sps;
 
