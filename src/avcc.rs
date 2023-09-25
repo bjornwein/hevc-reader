@@ -15,7 +15,7 @@ pub enum AvccError {
     },
     /// The AvcDecoderConfigurationRecord used a version number other than `1`.
     UnsupportedConfigurationVersion(u8),
-    ParamSet(ParamSetError),
+    ParamSet(Box<ParamSetError>),
     Sps(sps::SpsError),
     Pps(pps::PpsError),
 }
@@ -129,15 +129,15 @@ impl<'buf> AvcDecoderConfigurationRecord<'buf> {
     pub fn create_context(&self) -> Result<Context, AvccError> {
         let mut ctx = Context::new();
         for sps in self.sequence_parameter_sets() {
-            let sps = sps.map_err(AvccError::ParamSet)?;
-            let sps = RefNal::new(&sps[..], &[], true);
+            let sps = sps.map_err(|e| AvccError::ParamSet(Box::new(e)))?;
+            let sps = RefNal::new(sps, &[], true);
             let sps = crate::nal::sps::SeqParameterSet::from_bits(sps.rbsp_bits())
                 .map_err(AvccError::Sps)?;
             ctx.put_seq_param_set(sps);
         }
         for pps in self.picture_parameter_sets() {
-            let pps = pps.map_err(AvccError::ParamSet)?;
-            let pps = RefNal::new(&pps[..], &[], true);
+            let pps = pps.map_err(|e| AvccError::ParamSet(Box::new(e)))?;
+            let pps = RefNal::new(pps, &[], true);
             let pps = crate::nal::pps::PicParameterSet::from_bits(&ctx, pps.rbsp_bits())
                 .map_err(AvccError::Pps)?;
             ctx.put_pic_param_set(pps);
@@ -155,7 +155,7 @@ pub enum ParamSetError {
     },
     /// A _sequence parameter set_ found within the AVC decoder config was not consistent with the
     /// settings of the decoder config itself
-    IncompatibleSps(SeqParameterSet),
+    IncompatibleSps(Box<SeqParameterSet>),
 }
 
 struct ParamSetIter<'buf>(&'buf [u8], UnitType);

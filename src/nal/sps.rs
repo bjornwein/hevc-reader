@@ -491,7 +491,6 @@ impl LayerHrdParameters {
         // TODO: default value for cpb_cnt_minus1? (ie if low_delay_hrd_flag)
         let nal_hrd_parameters = if nal_hrd_parameters_present {
             let params: Result<Vec<_>, _> = (0..=cpb_cnt_minus1)
-                .into_iter()
                 .map(|_| SubLayerHrdParameter::read(r, sub_pic_hrd_parameters_present))
                 .collect();
             Some(params?)
@@ -500,7 +499,6 @@ impl LayerHrdParameters {
         };
         let vcl_hrd_parameters = if vcl_hrd_parameters_present {
             let params: Result<Vec<_>, _> = (0..=cpb_cnt_minus1)
-                .into_iter()
                 .map(|_| SubLayerHrdParameter::read(r, sub_pic_hrd_parameters_present))
                 .collect();
             Some(params?)
@@ -790,8 +788,8 @@ impl ProfileTierLevel {
         for (i, layer) in sub_layers.iter_mut().enumerate() {
             *layer = SubLayerProfileLevel::read(
                 r,
-                sub_layer_profile_present_flag[usize::from(i)],
-                sub_layer_level_present_flag[usize::from(i)],
+                sub_layer_profile_present_flag[i],
+                sub_layer_level_present_flag[i],
             )?;
         }
 
@@ -1119,10 +1117,8 @@ impl SeqParameterSet {
 
             profile_tier_level: ProfileTierLevel::read(&mut r, true, sps_max_sub_layers_minus1)?, // check
 
-            sps_seq_parameter_set_id: ParamSetId::from_u32(
-                r.read_ue("seq_parameter_set_id")?.into(),
-            )
-            .map_err(SpsError::BadSeqParamSetId)?,
+            sps_seq_parameter_set_id: ParamSetId::from_u32(r.read_ue("seq_parameter_set_id")?)
+                .map_err(SpsError::BadSeqParamSetId)?,
             chroma_info: ChromaInfo::read(&mut r)?,
             pic_width_in_luma_samples: r.read_ue("pic_width_in_luma_samples")?,
             pic_height_in_luma_samples: r.read_ue("pic_height_in_luma_samples")?,

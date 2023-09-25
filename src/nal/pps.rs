@@ -89,7 +89,7 @@ impl SliceGroup {
             2 => Ok(SliceGroup::ForegroundAndLeftover {
                 rectangles: Self::read_rectangles(r, num_slice_groups_minus1)?,
             }),
-            3 | 4 | 5 => Ok(SliceGroup::Changing {
+            3..=5 => Ok(SliceGroup::Changing {
                 change_type: SliceGroupChangeType::from_id(slice_group_map_type)?,
                 num_slice_groups_minus1,
                 slice_group_change_direction_flag: r

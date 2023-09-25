@@ -133,7 +133,7 @@ impl<R: BufRead> ByteReader<R> {
                 }
                 ParseState::PostThree => match chunk[self.i] {
                     0x00 => self.state = ParseState::OneZero,
-                    0x01 | 0x02 | 0x03 => self.state = ParseState::Start,
+                    0x01..=0x03 => self.state = ParseState::Start,
                     o => {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
@@ -196,7 +196,7 @@ impl<R: BufRead> BufRead for ByteReader<R> {
 /// let invalid_nal = &b"\x68\x12\x34\x00\x00\x00\x86"[..];
 /// assert_eq!(decode_nal(invalid_nal).unwrap_err().kind(), ErrorKind::InvalidData);
 /// ```
-pub fn decode_nal<'a>(nal_unit: &'a [u8]) -> Result<Cow<'a, [u8]>, std::io::Error> {
+pub fn decode_nal(nal_unit: &[u8]) -> Result<Cow<'_, [u8]>, std::io::Error> {
     let mut reader = ByteReader {
         inner: nal_unit,
         state: ParseState::HeaderByte1,
@@ -285,7 +285,7 @@ impl<R: std::io::BufRead + Clone> BitRead for BitReader<R> {
             .read_unary1()
             .map_err(|e| BitReaderError::ReaderErrorFor(name, e))?;
         if count > 31 {
-            return Err(BitReaderError::ExpGolombTooLarge(name));
+            Err(BitReaderError::ExpGolombTooLarge(name))
         } else if count > 0 {
             let val = self.read_u32(count, name)?;
             Ok((1 << count) - 1 + val)
