@@ -1,6 +1,6 @@
 //! Push parsing of encoded NALs.
 
-use crate::nal::{NalHeader, RefNal};
+use crate::nal::RefNal;
 
 /// [`AccumulatedNalHandler`]'s interest in receiving additional callbacks on a NAL.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

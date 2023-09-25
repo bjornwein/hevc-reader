@@ -2,7 +2,7 @@
 //! File Format_ (AKA MP4), as the specified in _ISO/IEC 14496-15_.
 //!
 
-use crate::nal::sps::{ConstraintFlags, Level, ProfileIdc, SeqParameterSet};
+use crate::nal::sps::SeqParameterSet;
 use crate::nal::{pps, sps, Nal, NalHeader, NalHeaderError, RefNal, UnitType};
 use crate::Context;
 use std::convert::TryFrom;
@@ -89,6 +89,7 @@ impl<'buf> AvcDecoderConfigurationRecord<'buf> {
     pub fn num_of_sequence_parameter_sets(&self) -> usize {
         (self.data[5] & 0b0001_1111) as usize
     }
+    /*
     pub fn avc_profile_indication(&self) -> ProfileIdc {
         self.data[1].into()
     }
@@ -98,6 +99,7 @@ impl<'buf> AvcDecoderConfigurationRecord<'buf> {
     pub fn avc_level_indication(&self) -> Level {
         Level::from_constraint_flags_and_level_idc(self.profile_compatibility(), self.data[3])
     }
+    */
     /// Number of bytes used to specify the length of each NAL unit
     /// 0 => 1 byte, 1 => 2 bytes, 2 => 3 bytes, 3 => 4 bytes
     pub fn length_size_minus_one(&self) -> u8 {

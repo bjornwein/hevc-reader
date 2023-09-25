@@ -14,7 +14,6 @@ pub enum PpsError {
     UnknownSeqParamSetId(ParamSetId<15>),
     BadPicParamSetId(ParamSetIdError),
     BadSeqParamSetId(ParamSetIdError),
-    ScalingMatrix(sps::ScalingMatrixError),
 }
 
 impl From<rbsp::BitReaderError> for PpsError {
@@ -40,6 +39,7 @@ impl SliceGroupChangeType {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SliceRect {
     top_left: u32,
@@ -148,8 +148,8 @@ pub struct PicScalingMatrix {
 impl PicScalingMatrix {
     fn read<R: BitRead>(
         r: &mut R,
-        sps: &sps::SeqParameterSet,
-        transform_8x8_mode_flag: bool,
+        _sps: &sps::SeqParameterSet,
+        _transform_8x8_mode_flag: bool,
     ) -> Result<Option<PicScalingMatrix>, PpsError> {
         let pic_scaling_matrix_present_flag = r.read_bool("pic_scaling_matrix_present_flag")?;
         Ok(if pic_scaling_matrix_present_flag {

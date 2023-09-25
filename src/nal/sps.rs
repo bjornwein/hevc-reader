@@ -2,18 +2,16 @@ use crate::{
     nal::pps::{ParamSetId, ParamSetIdError},
     rbsp::{BitRead, BitReaderError},
 };
-use std::fmt::{self, Debug};
+use std::fmt::Debug;
 
 // TODO: more really specific errors after adding more constraints...
 #[derive(Debug)]
 pub enum SpsError {
     /// Signals that bit_depth_luma_minus8 was greater than the max value, 6
-    BitDepthOutOfRange(u32),
+    // BitDepthOutOfRange(u32),
     RbspReaderError(BitReaderError),
-    PicOrderCnt(PicOrderCntError),
-    ScalingMatrix(ScalingMatrixError),
     /// log2_max_frame_num_minus4 must be between 0 and 12
-    Log2MaxFrameNumMinus4OutOfRange(u32),
+    // Log2MaxFrameNumMinus4OutOfRange(u32),
     BadSeqParamSetId(ParamSetIdError),
     BadVideoParamSetId(ParamSetIdError),
     /// A field in the bitstream had a value too large for a subsequent calculation
@@ -21,10 +19,12 @@ pub enum SpsError {
         name: &'static str,
         value: u32,
     },
-    /// The frame-cropping values are too large vs. the coded picture size,
-    // CroppingError(FrameCropping),
     /// The `cpb_cnt_minus1` field must be between 0 and 31 inclusive.
-    CpbCountOutOfRange(u32),
+    // CpbCountOutOfRange(u32),
+
+    /// An unimplemented part of the SPS syntax was encountered
+    /// TODO: These errors should be removed before serious release
+    Unimplemented(&'static str),
 }
 
 impl From<BitReaderError> for SpsError {
@@ -33,196 +33,6 @@ impl From<BitReaderError> for SpsError {
     }
 }
 
-// FIXME
-#[derive(Debug)]
-pub enum Profile {
-    Unknown(u8),
-    Baseline,
-    Main,
-    High,
-    High422,
-    High10,
-    High444,
-    Extended,
-    ScalableBase,
-    ScalableHigh,
-    MultiviewHigh,
-    StereoHigh,
-    MFCDepthHigh,
-    MultiviewDepthHigh,
-    EnhancedMultiviewDepthHigh,
-}
-
-impl Profile {
-    pub fn from_profile_idc(profile_idc: ProfileIdc) -> Profile {
-        // TODO: accept constraint_flags too, as Level does?
-        match profile_idc.0 {
-            66 => Profile::Baseline,
-            77 => Profile::Main,
-            100 => Profile::High,
-            122 => Profile::High422,
-            110 => Profile::High10,
-            244 => Profile::High444,
-            88 => Profile::Extended,
-            83 => Profile::ScalableBase,
-            86 => Profile::ScalableHigh,
-            118 => Profile::MultiviewHigh,
-            128 => Profile::StereoHigh,
-            135 => Profile::MFCDepthHigh,
-            138 => Profile::MultiviewDepthHigh,
-            139 => Profile::EnhancedMultiviewDepthHigh,
-            other => Profile::Unknown(other),
-        }
-    }
-    pub fn profile_idc(&self) -> u8 {
-        match *self {
-            Profile::Baseline => 66,
-            Profile::Main => 77,
-            Profile::High => 100,
-            Profile::High422 => 122,
-            Profile::High10 => 110,
-            Profile::High444 => 144,
-            Profile::Extended => 88,
-            Profile::ScalableBase => 83,
-            Profile::ScalableHigh => 86,
-            Profile::MultiviewHigh => 118,
-            Profile::StereoHigh => 128,
-            Profile::MFCDepthHigh => 135,
-            Profile::MultiviewDepthHigh => 138,
-            Profile::EnhancedMultiviewDepthHigh => 139,
-            Profile::Unknown(profile_idc) => profile_idc,
-        }
-    }
-}
-
-// FIXME
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct ConstraintFlags(u8);
-impl From<u8> for ConstraintFlags {
-    fn from(v: u8) -> Self {
-        ConstraintFlags(v)
-    }
-}
-impl From<ConstraintFlags> for u8 {
-    fn from(v: ConstraintFlags) -> Self {
-        v.0
-    }
-}
-impl ConstraintFlags {
-    pub fn flag0(self) -> bool {
-        self.0 & 0b1000_0000 != 0
-    }
-    pub fn flag1(self) -> bool {
-        self.0 & 0b0100_0000 != 0
-    }
-    pub fn flag2(self) -> bool {
-        self.0 & 0b0010_0000 != 0
-    }
-    pub fn flag3(self) -> bool {
-        self.0 & 0b0001_0000 != 0
-    }
-    pub fn flag4(self) -> bool {
-        self.0 & 0b0000_1000 != 0
-    }
-    pub fn flag5(self) -> bool {
-        self.0 & 0b0000_0100 != 0
-    }
-    pub fn reserved_zero_two_bits(self) -> u8 {
-        self.0 & 0b0000_0011
-    }
-}
-impl Debug for ConstraintFlags {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.debug_struct("ConstraintFlags")
-            .field("flag0", &self.flag0())
-            .field("flag1", &self.flag1())
-            .field("flag2", &self.flag2())
-            .field("flag3", &self.flag3())
-            .field("flag4", &self.flag4())
-            .field("flag5", &self.flag5())
-            .field("reserved_zero_two_bits", &self.reserved_zero_two_bits())
-            .finish()
-    }
-}
-
-// FIXME
-#[derive(Debug, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum Level {
-    Unknown(u8),
-    L1,
-    L1_b,
-    L1_1,
-    L1_2,
-    L1_3,
-    L2,
-    L2_1,
-    L2_2,
-    L3,
-    L3_1,
-    L3_2,
-    L4,
-    L4_1,
-    L4_2,
-    L5,
-    L5_1,
-    L5_2,
-}
-impl Level {
-    pub fn from_constraint_flags_and_level_idc(
-        constraint_flags: ConstraintFlags,
-        level_idc: u8,
-    ) -> Level {
-        match level_idc {
-            10 => Level::L1,
-            11 => {
-                if constraint_flags.flag3() {
-                    Level::L1_b
-                } else {
-                    Level::L1_1
-                }
-            }
-            12 => Level::L1_2,
-            13 => Level::L1_3,
-            20 => Level::L2,
-            21 => Level::L2_1,
-            22 => Level::L2_2,
-            30 => Level::L3,
-            31 => Level::L3_1,
-            32 => Level::L3_2,
-            40 => Level::L4,
-            41 => Level::L4_1,
-            42 => Level::L4_2,
-            50 => Level::L5,
-            51 => Level::L5_1,
-            52 => Level::L5_2,
-            _ => Level::Unknown(level_idc),
-        }
-    }
-    pub fn level_idc(&self) -> u8 {
-        match *self {
-            Level::L1 => 10,
-            Level::L1_1 | Level::L1_b => 11,
-            Level::L1_2 => 12,
-            Level::L1_3 => 13,
-            Level::L2 => 20,
-            Level::L2_1 => 21,
-            Level::L2_2 => 22,
-            Level::L3 => 30,
-            Level::L3_1 => 31,
-            Level::L3_2 => 32,
-            Level::L4 => 40,
-            Level::L4_1 => 41,
-            Level::L4_2 => 42,
-            Level::L5 => 50,
-            Level::L5_1 => 51,
-            Level::L5_2 => 52,
-            Level::Unknown(level_idc) => level_idc,
-        }
-    }
-}
-
-// FIXME
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ChromaFormat {
     Monochrome,
@@ -244,73 +54,6 @@ impl ChromaFormat {
     }
 }
 
-// FIXME
-// _Profile Indication_ value
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct ProfileIdc(u8);
-impl ProfileIdc {
-    pub fn has_chroma_info(self) -> bool {
-        match self.0 {
-            100 | 110 | 122 | 244 | 44 | 83 | 86 => true,
-            _ => false,
-        }
-    }
-}
-impl From<u8> for ProfileIdc {
-    fn from(v: u8) -> Self {
-        ProfileIdc(v)
-    }
-}
-impl From<ProfileIdc> for u8 {
-    fn from(v: ProfileIdc) -> Self {
-        v.0
-    }
-}
-
-// FIXME
-#[derive(Debug)]
-pub enum ScalingMatrixError {
-    ReaderError(BitReaderError),
-    /// The `delta_scale` field must be between -128 and 127 inclusive.
-    DeltaScaleOutOfRange(i32),
-}
-
-impl From<BitReaderError> for ScalingMatrixError {
-    fn from(e: BitReaderError) -> Self {
-        ScalingMatrixError::ReaderError(e)
-    }
-}
-
-/*
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct SeqScalingMatrix {
-    // TODO
-}
-
-impl SeqScalingMatrix {
-    fn read<R: BitRead>(
-        r: &mut R,
-        chroma_format_idc: u32,
-    ) -> Result<SeqScalingMatrix, ScalingMatrixError> {
-        let mut scaling_list4x4 = vec![];
-        let mut scaling_list8x8 = vec![];
-
-        let count = if chroma_format_idc == 3 { 12 } else { 8 };
-        for i in 0..count {
-            let seq_scaling_list_present_flag = r.read_bool("seq_scaling_list_present_flag")?;
-            if seq_scaling_list_present_flag {
-                if i < 6 {
-                    scaling_list4x4.push(ScalingList::read(r, 16)?);
-                } else {
-                    scaling_list8x8.push(ScalingList::read(r, 64)?);
-                }
-            }
-        }
-        Ok(SeqScalingMatrix {})
-    }
-}
-*/
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChromaInfo {
     pub chroma_format: ChromaFormat,
@@ -330,132 +73,6 @@ impl ChromaInfo {
     }
 }
 
-// FIXME
-#[derive(Debug)]
-pub enum PicOrderCntError {
-    InvalidPicOrderCountType(u32),
-    ReaderError(BitReaderError),
-    /// log2_max_pic_order_cnt_lsb_minus4 must be between 0 and 12
-    Log2MaxPicOrderCntLsbMinus4OutOfRange(u32),
-    /// num_ref_frames_in_pic_order_cnt_cycle must be between 0 and 255
-    NumRefFramesInPicOrderCntCycleOutOfRange(u32),
-}
-
-impl From<BitReaderError> for PicOrderCntError {
-    fn from(e: BitReaderError) -> Self {
-        PicOrderCntError::ReaderError(e)
-    }
-}
-
-/*
-// FIXME
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PicOrderCntType {
-    TypeZero {
-        log2_max_pic_order_cnt_lsb_minus4: u8,
-    },
-    TypeOne {
-        delta_pic_order_always_zero_flag: bool,
-        offset_for_non_ref_pic: i32,
-        offset_for_top_to_bottom_field: i32,
-        offsets_for_ref_frame: Vec<i32>,
-    },
-    TypeTwo,
-}
-impl PicOrderCntType {
-    fn read<R: BitRead>(r: &mut R) -> Result<PicOrderCntType, PicOrderCntError> {
-        let pic_order_cnt_type = r.read_ue("pic_order_cnt_type")?;
-        match pic_order_cnt_type {
-            0 => Ok(PicOrderCntType::TypeZero {
-                log2_max_pic_order_cnt_lsb_minus4: Self::read_log2_max_pic_order_cnt_lsb_minus4(r)?,
-            }),
-            1 => Ok(PicOrderCntType::TypeOne {
-                delta_pic_order_always_zero_flag: r
-                    .read_bool("delta_pic_order_always_zero_flag")?,
-                offset_for_non_ref_pic: r.read_se("offset_for_non_ref_pic")?,
-                offset_for_top_to_bottom_field: r.read_se("offset_for_top_to_bottom_field")?,
-                offsets_for_ref_frame: Self::read_offsets_for_ref_frame(r)?,
-            }),
-            2 => Ok(PicOrderCntType::TypeTwo),
-            _ => Err(PicOrderCntError::InvalidPicOrderCountType(
-                pic_order_cnt_type,
-            )),
-        }
-    }
-
-    fn read_log2_max_pic_order_cnt_lsb_minus4<R: BitRead>(
-        r: &mut R,
-    ) -> Result<u8, PicOrderCntError> {
-        let val = r.read_ue("log2_max_pic_order_cnt_lsb_minus4")?;
-        if val > 12 {
-            Err(PicOrderCntError::Log2MaxPicOrderCntLsbMinus4OutOfRange(val))
-        } else {
-            Ok(val as u8)
-        }
-    }
-
-    fn read_offsets_for_ref_frame<R: BitRead>(r: &mut R) -> Result<Vec<i32>, PicOrderCntError> {
-        let num_ref_frames_in_pic_order_cnt_cycle =
-            r.read_ue("num_ref_frames_in_pic_order_cnt_cycle")?;
-        if num_ref_frames_in_pic_order_cnt_cycle > 255 {
-            return Err(PicOrderCntError::NumRefFramesInPicOrderCntCycleOutOfRange(
-                num_ref_frames_in_pic_order_cnt_cycle,
-            ));
-        }
-        let mut offsets = Vec::with_capacity(num_ref_frames_in_pic_order_cnt_cycle as usize);
-        for _ in 0..num_ref_frames_in_pic_order_cnt_cycle {
-            offsets.push(r.read_se("offset_for_ref_frame")?);
-        }
-        Ok(offsets)
-    }
-}
-*/
-
-/*
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FrameMbsFlags {
-    Frames,
-    Fields { mb_adaptive_frame_field_flag: bool },
-}
-impl FrameMbsFlags {
-    fn read<R: BitRead>(r: &mut R) -> Result<FrameMbsFlags, BitReaderError> {
-        let frame_mbs_only_flag = r.read_bool("frame_mbs_only_flag")?;
-        if frame_mbs_only_flag {
-            Ok(FrameMbsFlags::Frames)
-        } else {
-            Ok(FrameMbsFlags::Fields {
-                mb_adaptive_frame_field_flag: r.read_bool("mb_adaptive_frame_field_flag")?,
-            })
-        }
-    }
-}
-*/
-/*
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct FrameCropping {
-    pub left_offset: u32,
-    pub right_offset: u32,
-    pub top_offset: u32,
-    pub bottom_offset: u32,
-}
-impl FrameCropping {
-    fn read<R: BitRead>(r: &mut R) -> Result<Option<FrameCropping>, BitReaderError> {
-        let frame_cropping_flag = r.read_bool("frame_cropping_flag")?;
-        Ok(if frame_cropping_flag {
-            Some(FrameCropping {
-                left_offset: r.read_ue("left_offset")?,
-                right_offset: r.read_ue("right_offset")?,
-                top_offset: r.read_ue("top_offset")?,
-                bottom_offset: r.read_ue("bottom_offset")?,
-            })
-        } else {
-            None
-        })
-    }
-}
-*/
-
-// FIXME: adjust to h265
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum AspectRatioInfo {
     #[default]
@@ -571,7 +188,6 @@ impl OverscanAppropriate {
     }
 }
 
-// FIXME: adjust for h265
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum VideoFormat {
     #[default]
@@ -593,6 +209,7 @@ impl VideoFormat {
             4 => VideoFormat::MAC,
             5 => VideoFormat::Unspecified,
             6 | 7 => VideoFormat::Reserved(video_format),
+            // This shouldn't be possible considering the single use of this function.
             _ => panic!("unsupported video_format value {}", video_format),
         }
     }
@@ -1133,7 +750,7 @@ impl SubLayerProfileLevel {
     }
 }
 
-// FIXME: naming? break out to common module and custom errors?
+// TODO: used in both vps and pps. break out to "common_syntax" module and add custom errors?
 /// Profile, Tier and Level
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProfileTierLevel {
@@ -1292,7 +909,7 @@ impl Pcm {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ShortTermRefPicSet; // FIXME: contents
+pub struct ShortTermRefPicSet; // TODO: contents
 impl ShortTermRefPicSet {
     fn read<R: BitRead>(
         r: &mut R,
@@ -1300,7 +917,7 @@ impl ShortTermRefPicSet {
         num_short_term_ref_pic_sets: u32,
     ) -> Result<Self, SpsError> {
         let inter_ref_pic_set_prediction_flag = if st_rps_idx == 0 {
-            false // FIXME: default for i==0?
+            false // TODO: default for i==0?
         } else {
             r.read_bool("inter_ref_pic_set_prediction_flag")?
         };
@@ -1313,7 +930,7 @@ impl ShortTermRefPicSet {
 
             // RefRpsIdx = stRpsIdx − ( delta_idx_minus1 + 1 )
             // NumDeltaPocs[ stRpsIdx ] = NumNegativePics[ stRpsIdx ] + NumPositivePics[ stRpsIdx ]
-            unimplemented!("TODO: implement num_delta_pics[ref_rps_idx");
+            return Err(SpsError::Unimplemented("num_delta_pics[ref_rps_idx]"));
             /*
             for j in 0..=num_delta_pocs[ref_rps_idx] {
                 let used_by_curr_pic_flag = r.read_bool("used_by_curr_pic_flag")?;
@@ -1429,16 +1046,16 @@ impl SpsExtension {
 
             // TODO
             if sps_range_extension_flag {
-                unimplemented!("SPS range extension parser");
+                return Err(SpsError::Unimplemented("sps_range_extension"));
             }
             if sps_multilayer_extension_flag {
-                unimplemented!("SPS multilayer extension parser");
+                return Err(SpsError::Unimplemented("sps_multilayer_extension"));
             }
             if sps_3d_extension_flag {
-                unimplemented!("SPS 3D extension parser");
+                return Err(SpsError::Unimplemented("sps_3d_extension"));
             }
             if sps_scc_extension_flag {
-                unimplemented!("SPS scc extension parser");
+                return Err(SpsError::Unimplemented("sps_scc_extension"));
             }
             if sps_extension_4bits != 0 {
                 while r.has_more_rbsp_data("sps_extension_data_flag")? {
@@ -1453,7 +1070,7 @@ impl SpsExtension {
     }
 }
 
-pub type VideoParamSetId = ParamSetId<15>; // FIXME max? (4 bits, so 15)?
+pub type VideoParamSetId = ParamSetId<15>;
 pub type SeqParamSetId = ParamSetId<15>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
