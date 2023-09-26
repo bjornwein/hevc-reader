@@ -33,6 +33,122 @@ impl From<BitReaderError> for SpsError {
     }
 }
 
+#[derive(Debug)]
+pub enum Profile {
+    Unknown(u8),
+
+    // Main profile
+    Main,
+
+    // Main 10 and Main 10 Still Picture profiles
+    Main10,
+    Main10StillPicture,
+
+    // Main Still Picture profile
+    MainStillPicture,
+
+    // Format range extensions profiles
+    Monochrome,
+    Monochrome10,
+    Monochrome12,
+    Monochrome16,
+    Main12,
+    Main422_10,
+    Main422_12,
+    Main444,
+    Main444_10,
+    Main444_12,
+    MainIntra,
+    Main10Intra,
+    Main12Intra,
+    Main422_10Intra,
+    Main422_12Intra,
+    Main444Intra,
+    Main444_10Intra,
+    Main444_12Intra,
+    Main444_16Intra,
+    Main444StillPicture,
+    Main444_16StillPicture,
+
+    // High throughput profiles
+    HighThroughput444,
+    HighThroughput444_10,
+    HighThroughput444_14,
+    HighThroughput444_16Intra,
+
+    // Screen content coding extensions profiles
+    ScreenExtendedMain,
+    ScreenExtendedMain10,
+    ScreenExtendedMain444,
+    ScreenExtendedMain444_10,
+
+    // High throughput screen content coding extensions profiles
+    ScreenExtendedHighThroughput444,
+    ScreenExtendedHighThroughput444_10,
+    ScreenExtendedHighThroughput444_14,
+
+    // Scalable Main and Scalable Main 10 profiles
+    ScalableMain,
+    ScalableMain10,
+
+    // Scalable format range extensions profiles
+    ScalableMonochrome,
+    ScalableMonochrome12,
+    ScalableMonochrome16,
+    ScalableMain444,
+
+    // Multiview Main profile
+    MultiviewMain,
+
+    // 3D Main profile
+    ThreeDeeMain,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Level {
+    L1,
+    L2,
+    L2_1,
+    L3,
+    L3_1,
+    L4,
+    L4_1,
+    L5,
+    L5_1,
+    L5_2,
+    L6,
+    L6_1,
+    L6_2,
+
+    L8_5,
+
+    /// Note that the value carried is the idc value, which is 30x level
+    Reserved(u8),
+}
+
+impl Level {
+    pub fn from_level_idc(level_idc: u8) -> Level {
+        // level_idc is 30 * level
+        match level_idc {
+            30 => Level::L1,
+            60 => Level::L2,
+            63 => Level::L2_1,
+            90 => Level::L3,
+            93 => Level::L3_1,
+            120 => Level::L4,
+            123 => Level::L4_1,
+            150 => Level::L5,
+            153 => Level::L5_1,
+            156 => Level::L5_2,
+            180 => Level::L6,
+            183 => Level::L6_1,
+            186 => Level::L6_2,
+            255 => Level::L8_5,
+            n => Level::Reserved(n),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ChromaFormat {
     Monochrome,
@@ -721,6 +837,188 @@ impl LayerProfile {
 
         Ok(profile)
     }
+
+    /// Return the "lowest" compatible profile
+    // TODO: this returns the "lowest" profile indicated by any profile_compatibility_flag
+    // but in reality a (sub)stream can conform to multiple profiles by setting multiple flags.
+    pub fn profile(&self) -> Profile {
+        use Profile::*;
+
+        if self.profile_idc == 1 || self.profile_compatibility_flag[1] {
+            Main
+        } else if self.profile_idc == 2 || self.profile_compatibility_flag[2] {
+            if self.one_picture_only_constraint_flag {
+                Main10StillPicture
+            } else {
+                Main10
+            }
+        } else if self.profile_idc == 3 || self.profile_compatibility_flag[3] {
+            MainStillPicture
+        } else if self.profile_idc == 4 || self.profile_compatibility_flag[4] {
+            match (
+                self.max_12bit_constraint_flag as u8,
+                self.max_10bit_constraint_flag as u8,
+                self.max_8bit_constraint_flag as u8,
+                self.max_422chroma_constraint_flag as u8,
+                self.max_420chroma_constraint_flag as u8,
+                self.max_monochrome_constraint_flag as u8,
+                self.intra_constraint_flag as u8,
+                self.one_picture_only_constraint_flag as u8,
+                self.lower_bit_rate_constraint_flag as u8,
+            ) {
+                (1, 1, 1, 1, 1, 1, 0, 0, 1) => Monochrome,
+                (1, 1, 0, 1, 1, 1, 0, 0, 1) => Monochrome10,
+                (1, 0, 0, 1, 1, 1, 0, 0, 1) => Monochrome12,
+                (0, 0, 0, 1, 1, 1, 0, 0, 1) => Monochrome16,
+                (1, 0, 0, 1, 1, 0, 0, 0, 1) => Main12,
+                (1, 1, 0, 1, 0, 0, 0, 0, 1) => Main422_10,
+                (1, 0, 0, 1, 0, 0, 0, 0, 1) => Main422_12,
+                (1, 1, 1, 0, 0, 0, 0, 0, 1) => Main444,
+                (1, 1, 0, 0, 0, 0, 0, 0, 1) => Main444_10,
+                (1, 0, 0, 0, 0, 0, 0, 0, 1) => Main444_12,
+                (1, 1, 1, 1, 1, 0, 1, 0, _) => MainIntra,
+                (1, 1, 0, 1, 1, 0, 1, 0, _) => Main10Intra,
+                (1, 0, 0, 1, 1, 0, 1, 0, _) => Main12Intra,
+                (1, 1, 0, 1, 0, 0, 1, 0, _) => Main422_10Intra,
+                (1, 0, 0, 1, 0, 0, 1, 0, _) => Main422_12Intra,
+                (1, 1, 1, 0, 0, 0, 1, 0, _) => Main444Intra,
+                (1, 1, 0, 0, 0, 0, 1, 0, _) => Main444_10Intra,
+                (1, 0, 0, 0, 0, 0, 1, 0, _) => Main444_12Intra,
+                (0, 0, 0, 0, 0, 0, 1, 0, _) => Main444_16Intra,
+                (1, 1, 1, 0, 0, 0, 1, 1, _) => Main444StillPicture,
+                (0, 0, 0, 0, 0, 0, 1, 1, _) => Main444_16StillPicture,
+
+                _ => Unknown(self.profile_idc),
+            }
+        } else if self.profile_idc == 5 || self.profile_compatibility_flag[5] {
+            match (
+                self.max_14bit_constraint_flag as u8,
+                self.max_12bit_constraint_flag as u8,
+                self.max_10bit_constraint_flag as u8,
+                self.max_8bit_constraint_flag as u8,
+                self.max_422chroma_constraint_flag as u8,
+                self.max_420chroma_constraint_flag as u8,
+                self.max_monochrome_constraint_flag as u8,
+                self.intra_constraint_flag as u8,
+                self.one_picture_only_constraint_flag as u8,
+                self.lower_bit_rate_constraint_flag as u8,
+            ) {
+                (1, 1, 1, 1, 0, 0, 0, 0, 0, 1) => HighThroughput444,
+                (1, 1, 1, 0, 0, 0, 0, 0, 0, 1) => HighThroughput444_10,
+                (1, 0, 0, 0, 0, 0, 0, 0, 0, 1) => HighThroughput444_14,
+                (0, 0, 0, 0, 0, 0, 0, 1, 0, _) => HighThroughput444_16Intra,
+
+                _ => Unknown(self.profile_idc),
+            }
+        } else if self.profile_idc == 6 || self.profile_compatibility_flag[6] {
+            match (
+                self.max_12bit_constraint_flag as u8,
+                self.max_10bit_constraint_flag as u8,
+                self.max_8bit_constraint_flag as u8,
+                self.max_422chroma_constraint_flag as u8,
+                self.max_420chroma_constraint_flag as u8,
+                self.max_monochrome_constraint_flag as u8,
+                self.intra_constraint_flag as u8,
+                self.one_picture_only_constraint_flag as u8,
+                self.lower_bit_rate_constraint_flag as u8,
+            ) {
+                (1, 1, 1, 1, 1, 0, 0, 0, 1) => MultiviewMain,
+                _ => Unknown(self.profile_idc),
+            }
+        } else if self.profile_idc == 7 || self.profile_compatibility_flag[7] {
+            match (
+                self.max_12bit_constraint_flag as u8,
+                self.max_10bit_constraint_flag as u8,
+                self.max_8bit_constraint_flag as u8,
+                self.max_422chroma_constraint_flag as u8,
+                self.max_420chroma_constraint_flag as u8,
+                self.max_monochrome_constraint_flag as u8,
+                self.intra_constraint_flag as u8,
+                self.one_picture_only_constraint_flag as u8,
+                self.lower_bit_rate_constraint_flag as u8,
+            ) {
+                (1, 1, 1, 1, 1, 0, 0, 0, 1) => ScalableMain,
+                (1, 1, 0, 1, 1, 0, 0, 0, 1) => ScalableMain10,
+                _ => Unknown(self.profile_idc),
+            }
+        } else if self.profile_idc == 8 || self.profile_compatibility_flag[8] {
+            match (
+                self.max_12bit_constraint_flag as u8,
+                self.max_10bit_constraint_flag as u8,
+                self.max_8bit_constraint_flag as u8,
+                self.max_422chroma_constraint_flag as u8,
+                self.max_420chroma_constraint_flag as u8,
+                self.max_monochrome_constraint_flag as u8,
+                self.intra_constraint_flag as u8,
+                self.one_picture_only_constraint_flag as u8,
+                self.lower_bit_rate_constraint_flag as u8,
+            ) {
+                (1, 1, 1, 1, 1, 0, 0, 0, 1) => ThreeDeeMain,
+                _ => Unknown(self.profile_idc),
+            }
+        } else if self.profile_idc == 9 || self.profile_compatibility_flag[9] {
+            match (
+                self.max_14bit_constraint_flag as u8,
+                self.max_12bit_constraint_flag as u8,
+                self.max_10bit_constraint_flag as u8,
+                self.max_8bit_constraint_flag as u8,
+                self.max_422chroma_constraint_flag as u8,
+                self.max_420chroma_constraint_flag as u8,
+                self.max_monochrome_constraint_flag as u8,
+                self.intra_constraint_flag as u8,
+                self.one_picture_only_constraint_flag as u8,
+                self.lower_bit_rate_constraint_flag as u8,
+            ) {
+                (1, 1, 1, 1, 1, 1, 0, 0, 0, 1) => ScreenExtendedMain,
+                (1, 1, 1, 0, 1, 1, 0, 0, 0, 1) => ScreenExtendedMain10,
+                (1, 1, 1, 1, 0, 0, 0, 0, 0, 1) => ScreenExtendedMain444,
+                (1, 1, 1, 0, 0, 0, 0, 0, 0, 1) => ScreenExtendedMain444_10,
+
+                _ => Unknown(self.profile_idc),
+            }
+        } else if self.profile_idc == 10 || self.profile_compatibility_flag[10] {
+            match (
+                self.max_14bit_constraint_flag as u8,
+                self.max_12bit_constraint_flag as u8,
+                self.max_10bit_constraint_flag as u8,
+                self.max_8bit_constraint_flag as u8,
+                self.max_422chroma_constraint_flag as u8,
+                self.max_420chroma_constraint_flag as u8,
+                self.max_monochrome_constraint_flag as u8,
+                self.intra_constraint_flag as u8,
+                self.one_picture_only_constraint_flag as u8,
+                self.lower_bit_rate_constraint_flag as u8,
+            ) {
+                (1, 1, 1, 1, 1, 1, 1, 0, 0, 1) => ScalableMonochrome,
+                (1, 1, 0, 0, 1, 1, 1, 0, 0, 1) => ScalableMonochrome12,
+                (0, 0, 0, 0, 1, 1, 1, 0, 0, 1) => ScalableMonochrome16,
+                (1, 1, 1, 1, 0, 0, 0, 0, 0, 1) => ScalableMain444,
+
+                _ => Unknown(self.profile_idc),
+            }
+        } else if self.profile_idc == 11 || self.profile_compatibility_flag[11] {
+            match (
+                self.max_14bit_constraint_flag as u8,
+                self.max_12bit_constraint_flag as u8,
+                self.max_10bit_constraint_flag as u8,
+                self.max_8bit_constraint_flag as u8,
+                self.max_422chroma_constraint_flag as u8,
+                self.max_420chroma_constraint_flag as u8,
+                self.max_monochrome_constraint_flag as u8,
+                self.intra_constraint_flag as u8,
+                self.one_picture_only_constraint_flag as u8,
+                self.lower_bit_rate_constraint_flag as u8,
+            ) {
+                (1, 1, 1, 1, 0, 0, 0, 0, 0, 1) => ScreenExtendedHighThroughput444,
+                (1, 1, 1, 0, 0, 0, 0, 0, 0, 1) => ScreenExtendedHighThroughput444_10,
+                (1, 0, 0, 0, 0, 0, 0, 0, 0, 1) => ScreenExtendedHighThroughput444_14,
+
+                _ => Unknown(self.profile_idc),
+            }
+        } else {
+            Unknown(self.profile_idc)
+        }
+    }
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
@@ -1157,6 +1455,27 @@ impl SeqParameterSet {
     pub fn id(&self) -> SeqParamSetId {
         self.sps_seq_parameter_set_id
     }
+
+    pub fn general_level(&self) -> Level {
+        Level::from_level_idc(self.profile_tier_level.general_level_idc)
+    }
+
+    fn general_profile_info(&self) -> &LayerProfile {
+        self.profile_tier_level
+            .general_profile
+            .as_ref()
+            .expect("SPS always has general profile")
+    }
+
+    pub fn general_tier_flag(&self) -> bool {
+        self.general_profile_info().tier_flag
+    }
+
+    /// Return the "lowest" compatible profile. A stream may conform to multiple profiles.
+    pub fn general_profile(&self) -> Profile {
+        self.general_profile_info().profile()
+    }
+
     /*
     fn read_log2_max_frame_num_minus4<R: BitRead>(r: &mut R) -> Result<u8, SpsError> {
         let val = r.read_ue("log2_max_frame_num_minus4")?;
@@ -1167,13 +1486,6 @@ impl SeqParameterSet {
         }
     }
 
-    pub fn profile(&self) -> Profile {
-        Profile::from_profile_idc(self.profile_idc)
-    }
-
-    pub fn level(&self) -> Level {
-        Level::from_constraint_flags_and_level_idc(self.constraint_flags, self.level_idc)
-    }
     /// returned value will be in the range 4 to 16 inclusive
     pub fn log2_max_frame_num(&self) -> u8 {
         self.log2_max_frame_num_minus4 + 4
