@@ -5,8 +5,6 @@
 //! 'emulation prevention bytes'.
 
 pub mod pps;
-//pub mod sei;
-//pub mod slice;
 pub mod sps;
 
 use crate::rbsp;
