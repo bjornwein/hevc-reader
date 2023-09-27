@@ -14,7 +14,6 @@ edition = "2021"
 bitstream-io = "1.1"
 hex-slice = "0.1.4"
 memchr = "2.1.1"
-rfc6381-codec = "0.1"
 log = "0.4"
 
 [dev-dependencies]
