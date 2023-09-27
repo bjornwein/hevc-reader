@@ -33,7 +33,22 @@ impl From<BitReaderError> for SpsError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tier {
+    Main,
+    High,
+}
+impl Tier {
+    // TODO: understand semantics better
+    pub fn from_tier_flag(flag: bool) -> Tier {
+        match flag {
+            false => Tier::Main,
+            true => Tier::High,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Profile {
     Unknown(u8),
 
@@ -458,11 +473,11 @@ impl TimingInfo {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SubPicHrdParams {
-    tick_divisor_minus2: u8,
-    du_cpb_removal_delay_increment_length_minus1: u8,
-    sub_pic_cpb_params_in_pic_timing_sei_flag: bool,
-    dpb_output_delay_du_length_minus1: u8,
-    cpb_size_du_scale: u8,
+    pub tick_divisor_minus2: u8,
+    pub du_cpb_removal_delay_increment_length_minus1: u8,
+    pub sub_pic_cpb_params_in_pic_timing_sei_flag: bool,
+    pub dpb_output_delay_du_length_minus1: u8,
+    pub cpb_size_du_scale: u8,
 }
 impl SubPicHrdParams {
     fn read_partial<R: BitRead>(r: &mut R) -> Result<Self, BitReaderError> {
@@ -480,12 +495,12 @@ impl SubPicHrdParams {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HrdParametersCommonInfParameters {
-    sub_pic_hrd_params: Option<SubPicHrdParams>,
-    bit_rate_scale: u8,
-    cpb_size_scale: u8,
-    initial_cpb_removal_delay_length_minus1: u8,
-    au_cpb_removal_delay_length_minus1: u8,
-    dpb_output_delay_length_minus1: u8,
+    pub sub_pic_hrd_params: Option<SubPicHrdParams>,
+    pub bit_rate_scale: u8,
+    pub cpb_size_scale: u8,
+    pub initial_cpb_removal_delay_length_minus1: u8,
+    pub au_cpb_removal_delay_length_minus1: u8,
+    pub dpb_output_delay_length_minus1: u8,
 }
 impl HrdParametersCommonInfParameters {
     fn read<R: BitRead>(r: &mut R) -> Result<Self, BitReaderError> {
@@ -515,9 +530,9 @@ impl HrdParametersCommonInfParameters {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HrdParametersCommonInf {
-    nal_hrd_parameters_present_flag: bool,
-    vcl_hrd_parameters_present_flag: bool,
-    parameters: Option<HrdParametersCommonInfParameters>,
+    pub nal_hrd_parameters_present_flag: bool,
+    pub vcl_hrd_parameters_present_flag: bool,
+    pub parameters: Option<HrdParametersCommonInfParameters>,
 }
 impl HrdParametersCommonInf {
     fn read<R: BitRead>(r: &mut R) -> Result<Self, BitReaderError> {
@@ -537,15 +552,15 @@ impl HrdParametersCommonInf {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SubLayerSubPicHrdParams {
-    cpb_size_du_value_minus1: u32,
-    bit_rate_du_value_minus1: u32,
+    pub cpb_size_du_value_minus1: u32,
+    pub bit_rate_du_value_minus1: u32,
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SubLayerHrdParameter {
-    bit_rate_value_minus1: u32,
-    cpb_size_value_minus1: u32,
-    sub_pic_hrd_params: Option<SubLayerSubPicHrdParams>,
-    cbr_flag: bool,
+    pub bit_rate_value_minus1: u32,
+    pub cpb_size_value_minus1: u32,
+    pub sub_pic_hrd_params: Option<SubLayerSubPicHrdParams>,
+    pub cbr_flag: bool,
 }
 impl SubLayerHrdParameter {
     fn read<R: BitRead>(
@@ -572,13 +587,13 @@ impl SubLayerHrdParameter {
 // split optional fields in subtypes. Make better types if needed.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LayerHrdParameters {
-    fixed_pic_rate_general_flag: bool,
-    fixed_pic_rate_within_cvs_flag: bool, // valid iff !fixed_pic_rate_general_flag
-    elemental_duration_in_tc_minus1: u32, // valid iff fixed_pic_rate_within_cvs_flag
-    low_delay_hrd_flag: bool,             // valid iff !fixed_pic_rate_within_cvs_flag
-    cpb_cnt_minus1: u32,                  // valid iff !low_delay_hrd_flag
-    nal_hrd_parameters: Option<Vec<SubLayerHrdParameter>>,
-    vcl_hrd_parameters: Option<Vec<SubLayerHrdParameter>>,
+    pub fixed_pic_rate_general_flag: bool,
+    pub fixed_pic_rate_within_cvs_flag: bool, // valid iff !fixed_pic_rate_general_flag
+    pub elemental_duration_in_tc_minus1: u32, // valid iff fixed_pic_rate_within_cvs_flag
+    pub low_delay_hrd_flag: bool,             // valid iff !fixed_pic_rate_within_cvs_flag
+    pub cpb_cnt_minus1: u32,                  // valid iff !low_delay_hrd_flag
+    pub nal_hrd_parameters: Option<Vec<SubLayerHrdParameter>>,
+    pub vcl_hrd_parameters: Option<Vec<SubLayerHrdParameter>>,
 }
 impl LayerHrdParameters {
     fn read<R: BitRead>(
@@ -634,10 +649,11 @@ impl LayerHrdParameters {
     }
 }
 
+// TODO: most or all vecs can be replace with ArrayVec to reduce allocations and indirections
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HrdParameters {
-    common: Option<HrdParametersCommonInf>,
-    layers: [LayerHrdParameters; 8],
+    pub common: Option<HrdParametersCommonInf>,
+    pub layers: Vec<LayerHrdParameters>,
 }
 impl HrdParameters {
     fn read<R: BitRead>(
@@ -652,7 +668,7 @@ impl HrdParameters {
             } else {
                 None
             };
-            let mut layers = std::array::from_fn(|_| Default::default());
+            let mut layers = Vec::with_capacity(usize::from(max_num_sub_layers_minus1) + 1);
             let nal_hrd_params = common
                 .as_ref()
                 .map_or(false, |c| c.nal_hrd_parameters_present_flag);
@@ -664,13 +680,13 @@ impl HrdParameters {
                 .and_then(|c| c.parameters.as_ref())
                 .map(|p| p.sub_pic_hrd_params.is_some())
                 .unwrap_or(false);
-            for i in 0..=max_num_sub_layers_minus1 {
-                layers[usize::from(i)] = LayerHrdParameters::read(
+            for _ in 0..=max_num_sub_layers_minus1 {
+                layers.push(LayerHrdParameters::read(
                     r,
                     nal_hrd_params,
                     vcl_hrd_params,
                     sub_pic_hrd_params, // TODO: default values?
-                )?;
+                )?);
             }
             Some(Self { common, layers })
         } else {
@@ -712,29 +728,29 @@ impl BitstreamRestrictions {
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
-struct LayerProfile {
-    profile_space: u8,
-    tier_flag: bool,
-    profile_idc: u8,
-    profile_compatibility_flag: [bool; 32],
-    progressive_source_flag: bool,
-    interlaced_source_flag: bool,
-    non_packed_constraint_flag: bool,
-    frame_only_constraint_flag: bool,
+pub struct LayerProfile {
+    pub profile_space: u8,
+    pub tier_flag: bool,
+    pub profile_idc: u8,
+    pub profile_compatibility_flag: [bool; 32],
+    pub progressive_source_flag: bool,
+    pub interlaced_source_flag: bool,
+    pub non_packed_constraint_flag: bool,
+    pub frame_only_constraint_flag: bool,
 
     // TODO: default values for optional flags?
-    max_14bit_constraint_flag: bool,
-    max_12bit_constraint_flag: bool,
-    max_10bit_constraint_flag: bool,
-    max_8bit_constraint_flag: bool,
-    max_422chroma_constraint_flag: bool,
-    max_420chroma_constraint_flag: bool,
-    max_monochrome_constraint_flag: bool,
-    intra_constraint_flag: bool,
-    one_picture_only_constraint_flag: bool,
+    pub max_14bit_constraint_flag: bool,
+    pub max_12bit_constraint_flag: bool,
+    pub max_10bit_constraint_flag: bool,
+    pub max_8bit_constraint_flag: bool,
+    pub max_422chroma_constraint_flag: bool,
+    pub max_420chroma_constraint_flag: bool,
+    pub max_monochrome_constraint_flag: bool,
+    pub intra_constraint_flag: bool,
+    pub one_picture_only_constraint_flag: bool,
 
-    lower_bit_rate_constraint_flag: bool,
-    inbld_flag: bool,
+    pub lower_bit_rate_constraint_flag: bool,
+    pub inbld_flag: bool,
 }
 impl LayerProfile {
     pub fn read<R: BitRead>(r: &mut R) -> Result<LayerProfile, SpsError> {
@@ -836,6 +852,10 @@ impl LayerProfile {
         }
 
         Ok(profile)
+    }
+
+    pub fn tier(&self) -> Tier {
+        Tier::from_tier_flag(self.tier_flag)
     }
 
     /// Return the "lowest" compatible profile
@@ -1022,9 +1042,9 @@ impl LayerProfile {
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
-struct SubLayerProfileLevel {
-    profile: Option<LayerProfile>,
-    level_idc: Option<u8>,
+pub struct SubLayerProfileLevel {
+    pub profile: Option<LayerProfile>,
+    pub level_idc: Option<u8>,
 }
 impl SubLayerProfileLevel {
     pub fn read<R: BitRead>(
@@ -1050,9 +1070,9 @@ impl SubLayerProfileLevel {
 /// Profile, Tier and Level
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProfileTierLevel {
-    general_profile: Option<LayerProfile>,
-    general_level_idc: u8,
-    sub_layers: [SubLayerProfileLevel; 7],
+    pub general_profile: Option<LayerProfile>,
+    pub general_level_idc: u8,
+    pub sub_layers: [SubLayerProfileLevel; 7],
 }
 impl ProfileTierLevel {
     pub fn read<R: BitRead>(
@@ -1281,16 +1301,16 @@ impl LongTermRefPicSps {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VuiParameters {
-    aspect_ratio_info: Option<AspectRatioInfo>,
-    overscan_appropriate: OverscanAppropriate,
-    video_signal_type: Option<VideoSignalType>,
-    chroma_loc_info: Option<ChromaLocInfo>,
-    neutral_chroma_indication_flag: bool,
-    field_seq_flag: bool,
-    frame_field_info_present_flag: bool,
-    default_display_window: Option<Window>,
-    timing_info: Option<TimingInfo>,
-    bitstream_restrictions: Option<BitstreamRestrictions>,
+    pub aspect_ratio_info: Option<AspectRatioInfo>,
+    pub overscan_appropriate: OverscanAppropriate,
+    pub video_signal_type: Option<VideoSignalType>,
+    pub chroma_loc_info: Option<ChromaLocInfo>,
+    pub neutral_chroma_indication_flag: bool,
+    pub field_seq_flag: bool,
+    pub frame_field_info_present_flag: bool,
+    pub default_display_window: Option<Window>,
+    pub timing_info: Option<TimingInfo>,
+    pub bitstream_restrictions: Option<BitstreamRestrictions>,
 }
 impl VuiParameters {
     fn read_one<R: BitRead>(
@@ -1460,20 +1480,20 @@ impl SeqParameterSet {
         Level::from_level_idc(self.profile_tier_level.general_level_idc)
     }
 
-    fn general_profile_info(&self) -> &LayerProfile {
+    pub fn general_layer_profile(&self) -> &LayerProfile {
         self.profile_tier_level
             .general_profile
             .as_ref()
             .expect("SPS always has general profile")
     }
 
-    pub fn general_tier_flag(&self) -> bool {
-        self.general_profile_info().tier_flag
+    pub fn general_tier(&self) -> Tier {
+        self.general_layer_profile().tier()
     }
 
     /// Return the "lowest" compatible profile. A stream may conform to multiple profiles.
     pub fn general_profile(&self) -> Profile {
-        self.general_profile_info().profile()
+        self.general_layer_profile().profile()
     }
 
     /*
