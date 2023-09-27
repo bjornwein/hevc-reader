@@ -3,9 +3,9 @@ hevc-reader
 
 Reader for HEVC / H265 bitstream syntax, written in Rust.
 
-This is a partially completed HEVC-targeted fork of the excellent h264-reader crate.
+This is a pared down HEVC-targeted fork of the excellent [h264-reader](https://github.com/dholroyd/h264-reader) crate.
 
-Documentation and tests are mostly untouched for now, and very little functionality is available except
+Documentation and tests are mostly untouched and out of date for now, and very little functionality is available except
 the most basic NALs.
 
 
@@ -19,7 +19,7 @@ into intermediate buffers.  This is intended to support common cases like,
  - data embedded in MPEG-TS packets, where H265 data is interspersed with MPEG-TS header data
  - data being read from the network, where the data available at any instant may be incomplete
 
-An alternative to accepting partial data would be to take a number of peices of partial data
+An alternative to accepting partial data would be to take a number of pieces of partial data
 
 ### Lazy parsing
 
