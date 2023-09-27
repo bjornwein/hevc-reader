@@ -4,7 +4,6 @@
 #![deny(rust_2018_idioms)]
 
 pub mod annexb;
-pub mod avcc;
 pub mod nal;
 pub mod push;
 pub mod rbsp;
