@@ -70,7 +70,7 @@ impl UnitType {
                 17 => UnitType::SliceSegmentLayerBlaWRadl,
                 18 => UnitType::SliceSegmentLayerBlaNLp,
                 19 => UnitType::SliceSegmentLayerIdrWLp,
-                29 => UnitType::SliceSegmentLayerIdrNLp,
+                20 => UnitType::SliceSegmentLayerIdrNLp,
                 21 => UnitType::SliceSegmentLayerCraNut,
                 22..=31 => UnitType::Reserved(id),
                 32 => UnitType::VideoParameterSet,
