@@ -382,13 +382,13 @@ fn golomb_to_signed(val: u32) -> i32 {
     ((val >> 1) as i32 + (val & 0x1) as i32) * sign
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /* TODO: update with a h265 RBSP header
     use hex_literal::*;
     use hex_slice::AsHex;
-
     #[test]
     fn byte_reader() {
         let data = hex!(
@@ -414,6 +414,7 @@ mod tests {
             );
         }
     }
+    */
 
     #[test]
     fn bitreader_has_more_data() {
@@ -445,4 +446,3 @@ mod tests {
         ));
     }
 }
-*/
