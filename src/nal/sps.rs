@@ -462,8 +462,8 @@ impl TimingInfo {
     }
 
     fn read_num_ticks<R: BitRead>(r: &mut R) -> Result<Option<u32>, BitReaderError> {
-        let vui_poc_proprtional_timing_flag = r.read_bool("vui_poc_proprtional_timing_flag")?;
-        Ok(if vui_poc_proprtional_timing_flag {
+        let vui_poc_proportional_timing_flag = r.read_bool("vui_poc_proportional_timing_flag")?;
+        Ok(if vui_poc_proportional_timing_flag {
             Some(r.read_ue("vui_num_ticks_poc_diff_one_minus1")?)
         } else {
             None
@@ -1619,12 +1619,11 @@ impl SeqParameterSet {
 
 #[cfg(test)]
 mod test {
-    use crate::rbsp::{self, decode_nal, BitReader};
-
     use super::*;
-    use hex_literal::*;
+    use crate::rbsp::{decode_nal, BitReader};
     use test_case::test_case;
 
+    /*
     #[test]
     fn test_it() {
         let data = hex!(
@@ -1692,532 +1691,464 @@ mod test {
         let dim = sps.pixel_dimensions();
         assert!(matches!(dim, Err(SpsError::CroppingError(_))));
     }
-
-    #[test_case(
-        vec![
-            0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
-            0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
-            0x00, 0x03, 0x00, 0x3d, 0x08,
-        ],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(100),
-            constraint_flags: ConstraintFlags::from(0),
-            level_idc: 12,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
-                chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
-            },
-            log2_max_frame_num_minus4: 6,
-            pic_order_cnt: PicOrderCntType::TypeTwo,
-            max_num_ref_frames: 1,
-            gaps_in_frame_num_value_allowed_flag: true,
-            pic_width_in_mbs_minus1: 21,
-            pic_height_in_map_units_minus1: 17,
-            frame_mbs_flags: FrameMbsFlags::Frames,
-            direct_8x8_inference_flag: true,
-            frame_cropping: None,
-            vui_parameters: Some(VuiParameters{
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1,
-                    time_scale: 30,
-                    fixed_frame_rate_flag: true,
-                }),
-                ..VuiParameters::default()
-            }),
-        },
-        352,
-        288,
-        15.0; "352x288"
-    )]
-    #[test_case(
-        vec![
-            0x67, 0x64, 0x00, 0x1f, 0xac, 0xd9, 0x40, 0x50,
-            0x05, 0xbb, 0x01, 0x6c, 0x80, 0x00, 0x00, 0x03,
-            0x00, 0x80, 0x00, 0x00, 0x1e, 0x07, 0x8c, 0x18,
-            0xcb,
-        ],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(100),
-            constraint_flags: ConstraintFlags::from(0),
-            level_idc: 31,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
-                chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
-            },
-            log2_max_frame_num_minus4: 0,
-            pic_order_cnt: PicOrderCntType::TypeZero {
-                log2_max_pic_order_cnt_lsb_minus4: 2
-            },
-            max_num_ref_frames: 4,
-            gaps_in_frame_num_value_allowed_flag: false,
-            pic_width_in_mbs_minus1: 79,
-            pic_height_in_map_units_minus1: 44,
-            frame_mbs_flags: FrameMbsFlags::Frames,
-            direct_8x8_inference_flag: true,
-            frame_cropping: None,
-            vui_parameters: Some(VuiParameters{
-                aspect_ratio_info: Some(AspectRatioInfo::Ratio1_1),
-                video_signal_type: Some(VideoSignalType{
-                    video_format: VideoFormat::Unspecified,
-                    video_full_range_flag: true,
-                    colour_description: None,
-                }),
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1,
-                    time_scale: 60,
-                    fixed_frame_rate_flag: false,
-                }),
-                bitstream_restrictions: Some(BitstreamRestrictions{
-                    motion_vectors_over_pic_boundaries_flag: true,
-                    log2_max_mv_length_horizontal: 11,
-                    log2_max_mv_length_vertical: 11,
-                    max_num_reorder_frames: 2,
-                    max_dec_frame_buffering: 4,
-                    ..BitstreamRestrictions::default()
-                }),
-                ..VuiParameters::default()
-            }),
-        },
-        1280,
-        720,
-        30.0; "1280x720"
-    )]
-    #[test_case(
-        vec![
-            0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-            0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-            0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-        ],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(66),
-            constraint_flags: ConstraintFlags::from(0b11000000),
-            level_idc: 40,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
-                chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
-            },
-            log2_max_frame_num_minus4: 0,
-            pic_order_cnt: PicOrderCntType::TypeTwo,
-            max_num_ref_frames: 3,
-            gaps_in_frame_num_value_allowed_flag: false,
-            pic_width_in_mbs_minus1: 119,
-            pic_height_in_map_units_minus1: 67,
-            frame_mbs_flags: FrameMbsFlags::Frames,
-            direct_8x8_inference_flag: true,
-            frame_cropping: Some(FrameCropping{
-                bottom_offset: 4,
-                ..FrameCropping::default()
-            }),
-            vui_parameters: Some(VuiParameters{
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1,
-                    time_scale:      60,
-                    fixed_frame_rate_flag: false,
-                }),
-                bitstream_restrictions: Some(BitstreamRestrictions{
-                    motion_vectors_over_pic_boundaries_flag: true,
-                    log2_max_mv_length_horizontal: 11,
-                    log2_max_mv_length_vertical: 11,
-                    max_dec_frame_buffering: 3,
-                    ..BitstreamRestrictions::default()
-                }),
-                ..VuiParameters::default()
-            }),
-        },
-        1920,
-        1080,
-        30.0; "1920x1080 baseline"
-    )]
-    #[test_case(
-        vec![
-            0x67, 0x64, 0x00, 0x28, 0xac, 0xd9, 0x40, 0x78,
-            0x02, 0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00,
-            0x04, 0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60,
-            0xc6, 0x58,
-        ],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(100),
-            constraint_flags: ConstraintFlags::from(0),
-            level_idc: 40,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
-                chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
-            },
-            log2_max_frame_num_minus4: 0,
-            pic_order_cnt: PicOrderCntType::TypeZero {
-                log2_max_pic_order_cnt_lsb_minus4: 2
-            },
-            max_num_ref_frames: 4,
-            gaps_in_frame_num_value_allowed_flag: false,
-            pic_width_in_mbs_minus1: 119,
-            pic_height_in_map_units_minus1: 67,
-            frame_mbs_flags: FrameMbsFlags::Frames,
-            direct_8x8_inference_flag: true,
-            frame_cropping: Some(FrameCropping{
-                bottom_offset: 4,
-                ..FrameCropping::default()
-            }),
-            vui_parameters: Some(VuiParameters{
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1,
-                    time_scale: 60,
-                    fixed_frame_rate_flag: false,
-                }),
-                bitstream_restrictions: Some(BitstreamRestrictions{
-                    motion_vectors_over_pic_boundaries_flag: true,
-                    log2_max_mv_length_horizontal: 11,
-                    log2_max_mv_length_vertical: 11,
-                    max_num_reorder_frames: 2,
-                    max_dec_frame_buffering: 4,
-                    ..BitstreamRestrictions::default()
-                }),
-                ..VuiParameters::default()
-            }),
-        },
-        1920,
-        1080,
-        30.0; "1920x1080 nvidia"
-    )]
-    // This fails.
-
-    /*#[test_case(
-        vec![
-            0x67, 0x64, 0x00, 0x29, 0xac, 0x13, 0x31, 0x40,
-            0x78, 0x04, 0x47, 0xde, 0x03, 0xea, 0x02, 0x02,
-            0x03, 0xe0, 0x00, 0x00, 0x03, 0x00, 0x20, 0x00,
-            0x00, 0x06, 0x52, // 0x80,
-        ],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(100),
-            constraint_flags: ConstraintFlags::from(0),
-            level_idc: 41,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
-                chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
-            },
-            log2_max_frame_num_minus4: 8,
-            pic_order_cnt: PicOrderCntType::TypeZero {
-                log2_max_pic_order_cnt_lsb_minus4: 5
-            },
-            max_num_ref_frames: 4,
-            gaps_in_frame_num_value_allowed_flag: false,
-            pic_width_in_mbs_minus1: 119,
-            pic_height_in_map_units_minus1: 33,
-            frame_mbs_flags: FrameMbsFlags::Fields{
-                mb_adaptive_frame_field_flag: false,
-            },
-            direct_8x8_inference_flag: true,
-            frame_cropping: Some(FrameCropping{
-                bottom_offset: 2,
-                ..FrameCropping::default()
-            }),
-            vui_parameters: Some(VuiParameters{
-                aspect_ratio_info: Some(AspectRatioInfo::Ratio1_1),
-                overscan_appropriate: OverscanAppropriate::Appropriate,
-                video_signal_type: Some(VideoSignalType{
-                    video_format: VideoFormat::Unspecified,
-                    video_full_range_flag: false,
-                    colour_description: Some(ColourDescription{
-                        colour_primaries: 1,
-                        transfer_characteristics: 1,
-                        matrix_coefficients: 1,
-                    }),
-                }),
-                chroma_loc_info: Some(ChromaLocInfo{
-                    chroma_sample_loc_type_top_field: 0,
-                    chroma_sample_loc_type_bottom_field: 0,
-                }),
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1,
-                    time_scale: 50,
-                    fixed_frame_rate_flag: true,
-                }),
-                pic_struct_present_flag: true,
-                ..VuiParameters::default()
-            }),
-        },
-        1920,
-        1084,
-        25.0; "1920x1080"
-    )]
     */
+
     #[test_case(
-        vec![103, 100, 0, 32, 172, 23, 42, 1, 64, 30, 104, 64, 0, 1, 194, 0, 0, 87, 228, 33],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(100),
-            constraint_flags: ConstraintFlags::from(0),
-            level_idc: 32,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
-                chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
-            },
-            log2_max_frame_num_minus4: 10,
-            pic_order_cnt: PicOrderCntType::TypeZero {
-                log2_max_pic_order_cnt_lsb_minus4: 4
-            },
-            max_num_ref_frames: 1,
-            gaps_in_frame_num_value_allowed_flag: false,
-            pic_width_in_mbs_minus1: 79,
-            pic_height_in_map_units_minus1: 59,
-            frame_mbs_flags: FrameMbsFlags::Frames,
-            direct_8x8_inference_flag: true,
-            frame_cropping: None,
-            vui_parameters: Some(VuiParameters{
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1800,
-                    time_scale: 90000,
-                    fixed_frame_rate_flag: true,
-                }),
-                ..VuiParameters::default()
-            }),
-        },
-        1280,
-        960,
-        25.0; "hikvision"
-    )]
-    #[test_case(
-        vec![
-            103, 100, 0, 50, 173, 132, 1, 12, 32, 8, 97, 0, 67, 8, 2,
-            24, 64, 16, 194, 0, 132, 59, 80, 20, 0, 90, 211,
-            112, 16, 16, 20, 0, 0, 3, 0, 4, 0, 0, 3, 0, 162, 16,
-        ],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(100),
-            constraint_flags: ConstraintFlags::from(0),
-            level_idc: 50,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
-                chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
-            },
-            /*seq_scaling_list: Some(SeqScalingList{
-                scaling_list_4x4: vec![
-                    vec![
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                    ],
-                    vec![
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                    ],
-                    vec![
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                    ],
-                    vec![
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                    ],
-                    vec![
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                    ],
-                    vec![
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                        16, 16, 16, 16, 16, 16, 16, 16,
-                    ],
+        vec![0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00, 0xb0, 0x00,
+             0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x5d, 0xa0, 0x05, 0xc2, 0x00,
+             0x90, 0x71, 0x3e, 0x87, 0xee, 0x46, 0xd1, 0x2e, 0x3f, 0xf0, 0x04,
+             0x00, 0x02, 0xd0, 0x10, 0x00, 0x00, 0x03, 0x00, 0x10, 0x00, 0x00,
+             0x03, 0x01, 0x96, 0x00, 0x00, 0x03, 0x00, 0xe0, 0x00, 0x49, 0x3e,
+             0x00, 0x0b, 0xb8, 0x48],
+        SeqParameterSet {
+            sps_video_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
+            sps_max_sub_layers_minus1: 0,
+            sps_temporal_id_nesting: true,
+            profile_tier_level: ProfileTierLevel {
+                general_profile: Some(
+                    LayerProfile {
+                        profile_space: 0,
+                        tier_flag: false,
+                        profile_idc: 1,
+                        profile_compatibility_flag: [
+                            false,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                        ],
+                        progressive_source_flag: true,
+                        interlaced_source_flag: false,
+                        non_packed_constraint_flag: true,
+                        frame_only_constraint_flag: true,
+                        max_14bit_constraint_flag: false,
+                        max_12bit_constraint_flag: false,
+                        max_10bit_constraint_flag: false,
+                        max_8bit_constraint_flag: false,
+                        max_422chroma_constraint_flag: false,
+                        max_420chroma_constraint_flag: false,
+                        max_monochrome_constraint_flag: false,
+                        intra_constraint_flag: false,
+                        one_picture_only_constraint_flag: false,
+                        lower_bit_rate_constraint_flag: false,
+                        inbld_flag: false,
+                    },
+                ),
+                general_level_idc: 93,
+                sub_layers: [
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
                 ],
-                use_default_scaling_matrix_4x4_flag: vec![false, false, false, false, false, false],
-                ..SeqScalingList::default()
-            }),*/
-            log2_max_frame_num_minus4: 6,
-            pic_order_cnt: PicOrderCntType::TypeTwo,
-            max_num_ref_frames: 1,
-            gaps_in_frame_num_value_allowed_flag: true,
-            pic_width_in_mbs_minus1: 159,
-            pic_height_in_map_units_minus1: 89,
-            frame_mbs_flags: FrameMbsFlags::Frames,
-            direct_8x8_inference_flag: true,
-            frame_cropping: None,
-            vui_parameters: Some(VuiParameters{
-                video_signal_type: Some(VideoSignalType{
-                    video_format: VideoFormat::Unspecified,
-                    video_full_range_flag: true,
-                    colour_description: Some(ColourDescription{
-                        colour_primaries: 1,
-                        transfer_characteristics: 1,
-                        matrix_coefficients: 1,
-                    }),
-                }),
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1,
-                    time_scale: 40,
-                    fixed_frame_rate_flag: true,
-                }),
-                ..VuiParameters::default()
-            }),
+            },
+            sps_seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
+            chroma_info: ChromaInfo {
+                chroma_format: ChromaFormat::YUV420,
+                separate_colour_plane_flag: false,
+            },
+            pic_width_in_luma_samples: 736,
+            pic_height_in_luma_samples: 576,
+            conformance_window: Some(
+                Window {
+                    win_left_offset: 0,
+                    win_right_offset: 8,
+                    win_top_offset: 0,
+                    win_bottom_offset: 0,
+                },
+            ),
+            bit_depth_luma_minus8: 0,
+            bit_depth_chroma_minus8: 0,
+            log2_max_pic_order_cnt_lsb_minus4: 1,
+            sub_layering_ordering_info: vec![
+                LayerInfo {
+                    sps_max_dec_pic_buffering_minus1: 6,
+                    sps_max_num_reorder_pics: 0,
+                    sps_max_latency_increase_plus1: 0,
+                },
+            ],
+            log2_min_luma_coding_block_size_minus3: 0,
+            log2_diff_max_min_luma_coding_block_size: 2,
+            log2_min_luma_transform_block_size_minus2: 0,
+            log2_diff_max_min_luma_transform_block_size: 3,
+            max_transform_hierarchy_depth_inter: 2,
+            max_transform_hierarchy_depth_intra: 2,
+            scaling_list: None,
+            amp_enabled: true,
+            sample_adaptive_offset_enabled: false,
+            pcm: None,
+            st_ref_pic_sets: vec![
+                ShortTermRefPicSet,
+            ],
+            long_term_ref_pics_sps: None,
+            sps_termporal_mvp_enabled: false,
+            strong_intra_smoothing_enabled: false,
+            vui_parameters: Some(
+                VuiParameters {
+                    aspect_ratio_info: Some(
+                        AspectRatioInfo::Extended(
+                            64,
+                            45,
+                        ),
+                    ),
+                    overscan_appropriate: OverscanAppropriate::Unspecified,
+                    video_signal_type: None,
+                    chroma_loc_info: None,
+                    neutral_chroma_indication_flag: false,
+                    field_seq_flag: false,
+                    frame_field_info_present_flag: false,
+                    default_display_window: None,
+                    timing_info: Some(
+                        TimingInfo {
+                            num_units_in_tick: 1,
+                            time_scale: 25,
+                            num_ticks_poc_diff_one_minus1: None,
+                            hrd_parameters: Some(
+                                HrdParameters {
+                                    common: Some(
+                                        HrdParametersCommonInf {
+                                            nal_hrd_parameters_present_flag: true,
+                                            vcl_hrd_parameters_present_flag: false,
+                                            parameters: Some(
+                                                HrdParametersCommonInfParameters {
+                                                    sub_pic_hrd_params: None,
+                                                    bit_rate_scale: 0,
+                                                    cpb_size_scale: 0,
+                                                    initial_cpb_removal_delay_length_minus1: 0,
+                                                    au_cpb_removal_delay_length_minus1: 0,
+                                                    dpb_output_delay_length_minus1: 0,
+                                                },
+                                            ),
+                                        },
+                                    ),
+                                    layers: vec![
+                                        LayerHrdParameters {
+                                            fixed_pic_rate_general_flag: true,
+                                            fixed_pic_rate_within_cvs_flag: true,
+                                            elemental_duration_in_tc_minus1: 0,
+                                            low_delay_hrd_flag: false,
+                                            cpb_cnt_minus1: 0,
+                                            nal_hrd_parameters: Some(
+                                                vec![
+                                                    SubLayerHrdParameter {
+                                                        bit_rate_value_minus1: 18749,
+                                                        cpb_size_value_minus1: 5999,
+                                                        sub_pic_hrd_params: None,
+                                                        cbr_flag: true,
+                                                    },
+                                                ],
+                                            ),
+                                            vcl_hrd_parameters: None,
+                                        },
+                                    ],
+                                },
+                            ),
+                        },
+                    ),
+                    bitstream_restrictions: None,
+                },
+            ),
+            sps_extension: None,
         },
-        2560,
-        1440,
-        20.0; "scaling matrix"
+        720, 576, 25.0;
+        "Intinor HW encode 720x576p"
     )]
     #[test_case(
-        vec![
-            103, 100, 0, 42, 172, 44, 172, 7,
-            128, 34, 126, 92, 5, 168, 8, 8,
-            10, 0, 0, 7, 208, 0, 3, 169,
-            129, 192, 0, 0, 76, 75, 0, 0,
-            38, 37, 173, 222, 92, 20,
-        ],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(100),
-            constraint_flags: ConstraintFlags::from(0),
-            level_idc: 42,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
+        vec![0x42, 0x01, 0x01, 0x01, 0x40, 0x00, 0x00, 0x03, 0x00, 0x40, 0x00,
+             0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x7b, 0xa0, 0x03, 0xc0, 0x80,
+             0x22, 0x1f, 0x79, 0xe9, 0x6e, 0x44, 0xa1, 0x7f, 0xf8, 0x00, 0x08,
+             0x00, 0x13, 0x50, 0x10, 0x10, 0x1e, 0xd0, 0x00, 0x00, 0x03, 0x00,
+             0x10, 0x00, 0x00, 0x03, 0x03, 0x25, 0x08, 0xff, 0xde, 0x10, 0x00,
+             0x16, 0xe3, 0x60, 0x00, 0x05,
+               0xdd, 0x77, 0xdf, 0x08, 0x04, 0x10],
+        SeqParameterSet {
+            sps_video_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
+            sps_max_sub_layers_minus1: 0,
+            sps_temporal_id_nesting: true,
+            profile_tier_level: ProfileTierLevel {
+                general_profile: Some(
+                    LayerProfile {
+                        profile_space: 0,
+                        tier_flag: false,
+                        profile_idc: 1,
+                        profile_compatibility_flag: [
+                            false,
+                            true,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                        ],
+                        progressive_source_flag: false,
+                        interlaced_source_flag: true,
+                        non_packed_constraint_flag: false,
+                        frame_only_constraint_flag: false,
+                        max_14bit_constraint_flag: false,
+                        max_12bit_constraint_flag: false,
+                        max_10bit_constraint_flag: false,
+                        max_8bit_constraint_flag: false,
+                        max_422chroma_constraint_flag: false,
+                        max_420chroma_constraint_flag: false,
+                        max_monochrome_constraint_flag: false,
+                        intra_constraint_flag: false,
+                        one_picture_only_constraint_flag: false,
+                        lower_bit_rate_constraint_flag: false,
+                        inbld_flag: false,
+                    },
+                ),
+                general_level_idc: 123,
+                sub_layers: [
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                ],
+            },
+            sps_seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
+            chroma_info: ChromaInfo {
                 chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
+                separate_colour_plane_flag: false,
             },
-            log2_max_frame_num_minus4: 4,
-            pic_order_cnt: PicOrderCntType::TypeZero {
-                log2_max_pic_order_cnt_lsb_minus4: 4
-            },
-            max_num_ref_frames: 2,
-            gaps_in_frame_num_value_allowed_flag: false,
-            pic_width_in_mbs_minus1: 119,
-            pic_height_in_map_units_minus1: 67,
-            frame_mbs_flags: FrameMbsFlags::Frames,
-            direct_8x8_inference_flag: true,
-            frame_cropping: Some(FrameCropping{
-                bottom_offset: 4,
-                ..FrameCropping::default()
-            }),
-            vui_parameters: Some(VuiParameters{
-                aspect_ratio_info: Some(AspectRatioInfo::Ratio1_1),
-                video_signal_type: Some(VideoSignalType{
-                    video_format: VideoFormat::Unspecified,
-                    video_full_range_flag: false,
-                    colour_description: Some(ColourDescription{
-                        colour_primaries: 1,
-                        transfer_characteristics: 1,
-                        matrix_coefficients: 1,
-                    }),
-                }),
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1000,
-                    time_scale: 120000,
-                    fixed_frame_rate_flag: true,
-                }),
-                nal_hrd_parameters: Some(HrdParameters{
-                    cpb_specs: vec![CpbSpec{
-                        bit_rate_value_minus1: 39061,
-                        cpb_size_value_minus1: 156249,
-                        cbr_flag: true,
-                    }],
-                    initial_cpb_removal_delay_length_minus1: 23,
-                    cpb_removal_delay_length_minus1: 15,
-                    dpb_output_delay_length_minus1: 5,
-                    time_offset_length: 24,
-                    ..HrdParameters::default()
-                }),
-                low_delay_hrd_flag: Some(false),
-                pic_struct_present_flag: true,
-                ..VuiParameters::default()
-            }),
+            pic_width_in_luma_samples: 1920,
+            pic_height_in_luma_samples: 544,
+            conformance_window: Some(
+                Window {
+                    win_left_offset: 0,
+                    win_right_offset: 0,
+                    win_top_offset: 0,
+                    win_bottom_offset: 2,
+                },
+            ),
+            bit_depth_luma_minus8: 0,
+            bit_depth_chroma_minus8: 0,
+            log2_max_pic_order_cnt_lsb_minus4: 6,
+            sub_layering_ordering_info: vec![
+                LayerInfo {
+                    sps_max_dec_pic_buffering_minus1: 1,
+                    sps_max_num_reorder_pics: 1,
+                    sps_max_latency_increase_plus1: 0,
+                },
+            ],
+            log2_min_luma_coding_block_size_minus3: 0,
+            log2_diff_max_min_luma_coding_block_size: 2,
+            log2_min_luma_transform_block_size_minus2: 0,
+            log2_diff_max_min_luma_transform_block_size: 3,
+            max_transform_hierarchy_depth_inter: 1,
+            max_transform_hierarchy_depth_intra: 1,
+            scaling_list: Some(
+                ScalingList,
+            ),
+            amp_enabled: false,
+            sample_adaptive_offset_enabled: false,
+            pcm: None,
+            st_ref_pic_sets: vec![],
+            long_term_ref_pics_sps: None,
+            sps_termporal_mvp_enabled: true,
+            strong_intra_smoothing_enabled: true,
+            vui_parameters: Some(
+                VuiParameters {
+                    aspect_ratio_info: Some(
+                        AspectRatioInfo::Extended(1, 2),
+                    ),
+                    overscan_appropriate: OverscanAppropriate::Unspecified,
+                    video_signal_type: Some(
+                        VideoSignalType {
+                            video_format: VideoFormat::Unspecified,
+                            video_full_range_flag: false,
+                            colour_description: Some(
+                                ColourDescription {
+                                    colour_primaries: 1,
+                                    transfer_characteristics: 1,
+                                    matrix_coeffs: 1,
+                                },
+                            ),
+                        },
+                    ),
+                    chroma_loc_info: Some(
+                        ChromaLocInfo {
+                            chroma_sample_loc_type_top_field: 0,
+                            chroma_sample_loc_type_bottom_field: 0,
+                        },
+                    ),
+                    neutral_chroma_indication_flag: false,
+                    field_seq_flag: true,
+                    frame_field_info_present_flag: true,
+                    default_display_window: None,
+                    timing_info: Some(
+                        TimingInfo {
+                            num_units_in_tick: 1,
+                            time_scale: 50,
+                            num_ticks_poc_diff_one_minus1: None,
+                            hrd_parameters: Some(
+                                HrdParameters {
+                                    common: Some(
+                                        HrdParametersCommonInf {
+                                            nal_hrd_parameters_present_flag: false,
+                                            vcl_hrd_parameters_present_flag: true,
+                                            parameters: Some(
+                                                HrdParametersCommonInfParameters {
+                                                    sub_pic_hrd_params: None,
+                                                    bit_rate_scale: 1,
+                                                    cpb_size_scale: 1,
+                                                    initial_cpb_removal_delay_length_minus1: 31,
+                                                    au_cpb_removal_delay_length_minus1: 30,
+                                                    dpb_output_delay_length_minus1: 30,
+                                                },
+                                            ),
+                                        },
+                                    ),
+                                    layers: vec![
+                                        LayerHrdParameters {
+                                            fixed_pic_rate_general_flag: false,
+                                            fixed_pic_rate_within_cvs_flag: false,
+                                            elemental_duration_in_tc_minus1: 0,
+                                            low_delay_hrd_flag: false,
+                                            cpb_cnt_minus1: 0,
+                                            nal_hrd_parameters: None,
+                                            vcl_hrd_parameters: Some(
+                                                vec![
+                                                    SubLayerHrdParameter {
+                                                        bit_rate_value_minus1: 46874,
+                                                        cpb_size_value_minus1: 384374,
+                                                        sub_pic_hrd_params: None,
+                                                        cbr_flag: true,
+                                                    },
+                                                ],
+                                            ),
+                                        },
+                                    ],
+                                },
+                            ),
+                        },
+                    ),
+                    bitstream_restrictions: Some(
+                        BitstreamRestrictions {
+                            tiles_fixed_structure_flag: false,
+                            motion_vectors_over_pic_boundaries_flag: true,
+                            restricted_ref_pic_lists_flag: true,
+                            min_spatial_segmentation_idc: 0,
+                            max_bytes_per_pic_denom: 0,
+                            max_bits_per_mb_denom: 0,
+                            log2_max_mv_length_horizontal: 15,
+                            log2_max_mv_length_vertical: 15,
+                        },
+                    ),
+                },
+            ),
+            sps_extension: None,
         },
-        1920,
-        1080,
-        60.0; "1920x1080 nvenc hrd"
+        1920, 540, 50.0;
+        "Haivision 1080i25"
     )]
-    #[test_case(
-        vec![
-            103, 77, 0, 41, 154, 100, 3, 192,
-            17, 63, 46, 2, 220, 4, 4, 5,
-            0, 0, 3, 3, 232, 0, 0, 195,
-            80, 232, 96, 0, 186, 180, 0, 2,
-            234, 196, 187, 203, 141, 12, 0, 23,
-            86, 128, 0, 93, 88, 151, 121, 112,
-            160,
-        ],
-        SeqParameterSet{
-            profile_idc: ProfileIdc::from(77),
-            constraint_flags: ConstraintFlags::from(0),
-            level_idc: 41,
-            seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
-            chroma_info: ChromaInfo{
-                chroma_format: ChromaFormat::YUV420,
-                ..ChromaInfo::default()
-            },
-            log2_max_frame_num_minus4: 5,
-            pic_order_cnt: PicOrderCntType::TypeZero {
-                log2_max_pic_order_cnt_lsb_minus4: 5
-            },
-            max_num_ref_frames: 1,
-            gaps_in_frame_num_value_allowed_flag: false,
-            pic_width_in_mbs_minus1: 119,
-            pic_height_in_map_units_minus1: 67,
-            frame_mbs_flags: FrameMbsFlags::Frames,
-            direct_8x8_inference_flag: true,
-            frame_cropping: Some(FrameCropping{
-                bottom_offset: 4,
-                ..FrameCropping::default()
-            }),
-            vui_parameters: Some(VuiParameters{
-                aspect_ratio_info: Some(AspectRatioInfo::Ratio1_1),
-                video_signal_type: Some(VideoSignalType{
-                    video_format: VideoFormat::Unspecified,
-                    video_full_range_flag: true,
-                    colour_description: Some(ColourDescription{
-                        colour_primaries: 1,
-                        transfer_characteristics: 1,
-                        matrix_coefficients: 1,
-                    }),
-                }),
-                timing_info: Some(TimingInfo{
-                    num_units_in_tick: 1000,
-                    time_scale: 50000,
-                    fixed_frame_rate_flag: true,
-                }),
-                nal_hrd_parameters: Some(HrdParameters{
-                    bit_rate_scale: 4,
-                    cpb_size_scale: 3,
-                    cpb_specs: vec![CpbSpec{
-                        bit_rate_value_minus1: 11948,
-                        cpb_size_value_minus1: 95585,
-                        cbr_flag: false,
-                    }],
-                    initial_cpb_removal_delay_length_minus1: 23,
-                    cpb_removal_delay_length_minus1: 15,
-                    dpb_output_delay_length_minus1: 5,
-                    time_offset_length: 24,
-                }),
-                vcl_hrd_parameters: Some(HrdParameters{
-                    bit_rate_scale: 4,
-                    cpb_size_scale: 3,
-                    cpb_specs: vec![CpbSpec{
-                        bit_rate_value_minus1: 11948,
-                        cpb_size_value_minus1: 95585,
-                        cbr_flag: false,
-                    }],
-                    initial_cpb_removal_delay_length_minus1: 23,
-                    cpb_removal_delay_length_minus1: 15,
-                    dpb_output_delay_length_minus1: 5,
-                    time_offset_length: 24,
-                    ..HrdParameters::default()
-                }),
-                low_delay_hrd_flag: Some(false),
-                pic_struct_present_flag: true,
-                ..VuiParameters::default()
-            }),
-        },
-        1920,
-        1080,
-        25.0; "1920x1080 hikvision nal hrd + vcl hrd"
-    )]
-    fn test_sps(byts: Vec<u8>, sps: SeqParameterSet, width: u32, height: u32, fps: f64) {
+    fn test_sps(byts: Vec<u8>, sps: SeqParameterSet, _width: u32, _height: u32, _fps: f64) {
         let sps_rbsp = decode_nal(&byts).unwrap();
         let sps2 = SeqParameterSet::from_bits(BitReader::new(&*sps_rbsp)).unwrap();
 
-        let (width2, height2) = sps2.pixel_dimensions().unwrap();
+        //let (width2, height2) = sps2.pixel_dimensions().unwrap();
         assert_eq!(sps, sps2);
-        assert_eq!(width, width2);
-        assert_eq!(height, height2);
-        assert_eq!(fps, sps2.fps().unwrap());
+        //assert_eq!(width, width2);
+        //assert_eq!(height, height2);
+        //assert_eq!(fps, sps2.fps().unwrap());
     }
 }

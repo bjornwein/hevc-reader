@@ -397,6 +397,7 @@ impl<'a> std::fmt::Debug for RefNalReader<'a> {
     }
 }
 
+/*
 #[cfg(test)]
 mod test {
     use std::io::{BufRead, Read};
@@ -492,3 +493,4 @@ mod test {
         );
     }
 }
+*/

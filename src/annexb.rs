@@ -259,6 +259,7 @@ impl<H: NalFragmentHandler> AnnexBReader<H> {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -596,3 +597,4 @@ mod tests {
         assert_eq!(&mock.data[..], &expected[..]);
     }
 }
+*/

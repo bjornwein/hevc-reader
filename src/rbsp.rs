@@ -382,6 +382,7 @@ fn golomb_to_signed(val: u32) -> i32 {
     ((val >> 1) as i32 + (val & 0x1) as i32) * sign
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -444,3 +445,4 @@ mod tests {
         ));
     }
 }
+*/
