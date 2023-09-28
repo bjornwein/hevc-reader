@@ -408,7 +408,7 @@ impl ChromaLocInfo {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Window {
     pub win_left_offset: u32,
     pub win_right_offset: u32,
@@ -1510,87 +1510,63 @@ impl SeqParameterSet {
     pub fn log2_max_frame_num(&self) -> u8 {
         self.log2_max_frame_num_minus4 + 4
     }
+    */
 
     /// Helper to calculate the pixel-dimensions of the video image specified by this SPS, taking
-    /// into account sample-format, interlacing and cropping.
+    /// into account cropping (but not interlacing - yet).
     pub fn pixel_dimensions(&self) -> Result<(u32, u32), SpsError> {
-        let width = self
-            .pic_width_in_mbs_minus1
-            .checked_add(1)
-            .and_then(|w| w.checked_mul(16))
-            .ok_or_else(|| SpsError::FieldValueTooLarge {
-                name: "pic_width_in_mbs_minus1",
-                value: self.pic_width_in_mbs_minus1,
-            })?;
-        let mul = match self.frame_mbs_flags {
-            FrameMbsFlags::Fields { .. } => 2,
-            FrameMbsFlags::Frames => 1,
-        };
-        let vsub = if self.chroma_info.chroma_format == ChromaFormat::YUV420 {
-            1
-        } else {
-            0
-        };
-        let hsub = if self.chroma_info.chroma_format == ChromaFormat::YUV420
-            || self.chroma_info.chroma_format == ChromaFormat::YUV422
-        {
-            1
-        } else {
-            0
-        };
+        let win = self.conformance_window.clone().unwrap_or_default();
 
-        let step_x = 1 << hsub;
-        let step_y = mul << vsub;
-
-        let height = (self.pic_height_in_map_units_minus1 + 1)
-            .checked_mul(mul * 16)
-            .ok_or_else(|| SpsError::FieldValueTooLarge {
-                name: "pic_height_in_map_units_minus1",
-                value: self.pic_height_in_map_units_minus1,
-            })?;
-        if let Some(ref crop) = self.frame_cropping {
-            let left_offset = crop.left_offset.checked_mul(step_x).ok_or_else(|| {
-                SpsError::FieldValueTooLarge {
-                    name: "left_offset",
-                    value: crop.left_offset,
-                }
-            })?;
-            let right_offset = crop.right_offset.checked_mul(step_x).ok_or_else(|| {
-                SpsError::FieldValueTooLarge {
-                    name: "right_offset",
-                    value: crop.right_offset,
-                }
-            })?;
-            let top_offset = crop.top_offset.checked_mul(step_y).ok_or_else(|| {
-                SpsError::FieldValueTooLarge {
-                    name: "top_offset",
-                    value: crop.top_offset,
-                }
-            })?;
-            let bottom_offset = crop.bottom_offset.checked_mul(step_y).ok_or_else(|| {
-                SpsError::FieldValueTooLarge {
-                    name: "bottom_offset",
-                    value: crop.bottom_offset,
-                }
-            })?;
-            let width = width
-                .checked_sub(left_offset)
-                .and_then(|w| w.checked_sub(right_offset));
-            let height = height
-                .checked_sub(top_offset)
-                .and_then(|w| w.checked_sub(bottom_offset));
-            if let (Some(width), Some(height)) = (width, height) {
-                Ok((width, height))
-            } else {
-                Err(SpsError::CroppingError(crop.clone()))
+        let (sub_width_c, sub_height_c) = match self.chroma_info.chroma_format {
+            ChromaFormat::Monochrome => (1, 1),
+            ChromaFormat::YUV420 => (2, 2),
+            ChromaFormat::YUV422 => (2, 1),
+            ChromaFormat::YUV444 => (1, 1),
+            ChromaFormat::Invalid(idc) => {
+                return Err(SpsError::FieldValueTooLarge {
+                    name: "chroma_format_idc",
+                    value: idc,
+                });
             }
-        } else {
-            Ok((width, height))
-        }
-    }
+        };
 
-    pub fn rfc6381(&self) -> rfc6381_codec::Codec {
-        rfc6381_codec::Codec::avc1(self.profile_idc.0, self.constraint_flags.0, self.level_idc)
+        let mut width = self.pic_width_in_luma_samples;
+        width = win
+            .win_left_offset
+            .checked_mul(sub_width_c)
+            .and_then(|offset| width.checked_sub(offset))
+            .ok_or(SpsError::FieldValueTooLarge {
+                name: "win_left_offset",
+                value: win.win_left_offset,
+            })?;
+        width = win
+            .win_right_offset
+            .checked_mul(sub_width_c)
+            .and_then(|offset| width.checked_sub(offset))
+            .ok_or(SpsError::FieldValueTooLarge {
+                name: "win_right_offset",
+                value: win.win_right_offset,
+            })?;
+
+        let mut height = self.pic_height_in_luma_samples;
+        height = win
+            .win_top_offset
+            .checked_mul(sub_height_c)
+            .and_then(|offset| height.checked_sub(offset))
+            .ok_or(SpsError::FieldValueTooLarge {
+                name: "win_top_offset",
+                value: win.win_top_offset,
+            })?;
+        height = win
+            .win_bottom_offset
+            .checked_mul(sub_height_c)
+            .and_then(|offset| height.checked_sub(offset))
+            .ok_or(SpsError::FieldValueTooLarge {
+                name: "win_bottom_offset",
+                value: win.win_bottom_offset,
+            })?;
+
+        Ok((width, height))
     }
 
     pub fn fps(&self) -> Option<f64> {
@@ -1601,9 +1577,8 @@ impl SeqParameterSet {
             return None;
         };
 
-        Some((timing_info.time_scale as f64) / (2.0 * (timing_info.num_units_in_tick as f64)))
+        Some((timing_info.time_scale as f64) / (timing_info.num_units_in_tick as f64))
     }
-    */
 
     fn validate_max_num_sub_layers_minus1(max_num_sub_layers_minus1: u8) -> Result<(), SpsError> {
         if max_num_sub_layers_minus1 > 7 {
@@ -2141,14 +2116,14 @@ mod test {
         1920, 540, 50.0;
         "Haivision 1080i25"
     )]
-    fn test_sps(byts: Vec<u8>, sps: SeqParameterSet, _width: u32, _height: u32, _fps: f64) {
+    fn test_sps(byts: Vec<u8>, sps: SeqParameterSet, width: u32, height: u32, fps: f64) {
         let sps_rbsp = decode_nal(&byts).unwrap();
         let sps2 = SeqParameterSet::from_bits(BitReader::new(&*sps_rbsp)).unwrap();
 
-        //let (width2, height2) = sps2.pixel_dimensions().unwrap();
+        let (width2, height2) = sps2.pixel_dimensions().unwrap();
         assert_eq!(sps, sps2);
-        //assert_eq!(width, width2);
-        //assert_eq!(height, height2);
-        //assert_eq!(fps, sps2.fps().unwrap());
+        assert_eq!(width, width2);
+        assert_eq!(height, height2);
+        assert_eq!(fps, sps2.fps().unwrap());
     }
 }
