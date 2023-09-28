@@ -606,7 +606,7 @@ impl LayerHrdParameters {
         let fixed_pic_rate_within_cvs_flag = if !fixed_pic_rate_general_flag {
             r.read_bool("fixed_pic_rate_within_cvs_flag")?
         } else {
-            false // TODO default?
+            true
         };
         let (elemental_duration_in_tc_minus1, low_delay_hrd_flag) =
             if fixed_pic_rate_within_cvs_flag {
@@ -614,7 +614,7 @@ impl LayerHrdParameters {
             } else {
                 (0, r.read_bool("low_delay_hrd_flag")?)
             };
-        let cpb_cnt_minus1 = if low_delay_hrd_flag {
+        let cpb_cnt_minus1 = if !low_delay_hrd_flag {
             r.read_ue("cpb_cnt_minus1")?
         } else {
             0
