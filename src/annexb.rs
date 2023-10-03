@@ -281,23 +281,20 @@ mod tests {
         }
     }
 
-    /*
     #[test]
     fn short_nal() {
         let mock = MockFragmentHandler::default();
         let mut r = AnnexBReader::for_fragment_handler(mock);
         let data = vec![
             0, 0, 0, 1, // start-code
-            3, // NAL data -- only one byte rather than required 2
+            3, // NAL data. Shorter than expected for a H265 NAL.
             0, 0, 1, // end-code
         ];
         r.push(&data[..]);
         let mock = r.into_fragment_handler();
-        // TODO: not sure if this is the desired result
-        assert_eq!(&mock.data[..], &[][..]);
-        assert_eq!(0, mock.ended);
+        assert_eq!(&mock.data[..], &[3]);
+        assert_eq!(1, mock.ended);
     }
-    */
 
     #[test]
     fn simple_nal() {
@@ -423,7 +420,6 @@ mod tests {
         assert_eq!(1, mock.ended);
     }
 
-    /*
     #[test]
     fn split_large() {
         let data = hex!(
@@ -614,5 +610,4 @@ mod tests {
         assert_eq!(3, mock.ended);
         assert_eq!(&mock.data[..], &expected[..]);
     }
-    */
 }
