@@ -133,37 +133,43 @@ pub enum UnitTypeError {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct NalHeader(u8, u8);
+pub struct NalHeader(u8, Option<u8>);
 
 #[derive(Debug)]
 pub enum NalHeaderError {
     /// The most significant bit of the header, called `forbidden_zero_bit`, was set to 1.
     ForbiddenZeroBit,
+    /// Only one byte received of the two required
+    IncompleteHeader,
 }
 impl NalHeader {
-    pub fn new(header_bytes: [u8; 2]) -> Result<NalHeader, NalHeaderError> {
-        if header_bytes[0] & 0b1000_0000 != 0 {
+    /// Create a new header from one or two bytes.
+    /// A one-byte header is considered incomplete,
+    /// but can still be used to inspect the nal_unit_type for interest decisions
+    pub fn new(byte1: u8, optional_byte2: Option<u8>) -> Result<NalHeader, NalHeaderError> {
+        if byte1 & 0b1000_0000 != 0 {
             Err(NalHeaderError::ForbiddenZeroBit)
         } else {
-            Ok(NalHeader(header_bytes[0], header_bytes[1]))
+            Ok(NalHeader(byte1, optional_byte2))
         }
+    }
+
+    pub fn is_complete(self) -> bool {
+        self.1.is_some()
     }
 
     pub fn nal_unit_type(self) -> UnitType {
         UnitType::for_id((self.0 & 0b0111_1110) >> 1).unwrap()
     }
 
-    pub fn nuh_layer_id(self) -> u8 {
-        (((self.0) & 0b0000_0001) << 5) + (((self.1) & 0b1111_1000) >> 3)
+    pub fn nuh_layer_id(self) -> Result<u8, NalHeaderError> {
+        let byte2 = self.1.ok_or(NalHeaderError::IncompleteHeader)?;
+        Ok((((self.0) & 0b0000_0001) << 5) + ((byte2 & 0b1111_1000) >> 3))
     }
 
-    pub fn nuh_temporal_id(self) -> u8 {
-        (self.1) & 0b0000_0111
-    }
-}
-impl From<NalHeader> for [u8; 2] {
-    fn from(v: NalHeader) -> Self {
-        [v.0, v.1]
+    pub fn nuh_temporal_id(self) -> Result<u8, NalHeaderError> {
+        let byte2 = self.1.ok_or(NalHeaderError::IncompleteHeader)?;
+        Ok(byte2 & 0b0000_0111)
     }
 }
 
@@ -259,7 +265,8 @@ pub trait Nal {
 /// A partially- or completely-buffered [`Nal`] backed by borrowed `&[u8]`s. See [`Nal`] docs.
 #[derive(Clone, Eq, PartialEq)]
 pub struct RefNal<'a> {
-    header: [u8; 2],
+    /// Actually only first byte of header. We need one byte more to parse the header.
+    header: u8,
     complete: bool,
 
     // Non-empty chunks.
@@ -267,15 +274,15 @@ pub struct RefNal<'a> {
     tail: &'a [&'a [u8]],
 }
 impl<'a> RefNal<'a> {
-    /// The caller must ensure that each provided chunk is non-empty.
+    /// The caller must ensure that each provided chunk is non-empty, and that
+    /// head is at least two bytes long
     #[inline]
     pub fn new(head: &'a [u8], tail: &'a [&'a [u8]], complete: bool) -> Self {
         for buf in tail {
             debug_assert!(!buf.is_empty());
         }
-        assert!(head.len() >= 2, "RefNal must be non-empty");
         Self {
-            header: [head[0], head[1]],
+            header: head[0],
             head,
             tail,
             complete,
@@ -292,7 +299,12 @@ impl<'a> Nal for RefNal<'a> {
 
     #[inline]
     fn header(&self) -> Result<NalHeader, NalHeaderError> {
-        NalHeader::new(self.header)
+        let header_byte_2 = self
+            .head
+            .first()
+            .or_else(|| self.tail.first().and_then(|b| b.first()))
+            .copied();
+        NalHeader::new(self.header, header_byte_2)
     }
 
     #[inline]
