@@ -259,7 +259,6 @@ impl<H: NalFragmentHandler> AnnexBReader<H> {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,18 +281,36 @@ mod tests {
         }
     }
 
+    /*
+    #[test]
+    fn short_nal() {
+        let mock = MockFragmentHandler::default();
+        let mut r = AnnexBReader::for_fragment_handler(mock);
+        let data = vec![
+            0, 0, 0, 1, // start-code
+            3, // NAL data -- only one byte rather than required 2
+            0, 0, 1, // end-code
+        ];
+        r.push(&data[..]);
+        let mock = r.into_fragment_handler();
+        // TODO: not sure if this is the desired result
+        assert_eq!(&mock.data[..], &[][..]);
+        assert_eq!(0, mock.ended);
+    }
+    */
+
     #[test]
     fn simple_nal() {
         let mock = MockFragmentHandler::default();
         let mut r = AnnexBReader::for_fragment_handler(mock);
         let data = vec![
             0, 0, 0, 1, // start-code
-            3, // NAL data
+            3, 4, // NAL data
             0, 0, 1, // end-code
         ];
         r.push(&data[..]);
         let mock = r.into_fragment_handler();
-        assert_eq!(&mock.data[..], &[3u8][..]);
+        assert_eq!(&mock.data[..], &[3, 4][..]);
         assert_eq!(1, mock.ended);
     }
 
@@ -303,12 +320,12 @@ mod tests {
         let mut r = AnnexBReader::for_fragment_handler(mock);
         let data = vec![
             0, 0, 1, // start-code -- only three bytes rather than the usual 4
-            3, // NAL data
+            3, 4, // NAL data
             0, 0, 1, // end-code
         ];
         r.push(&data[..]);
         let mock = r.into_fragment_handler();
-        assert_eq!(&mock.data[..], &[3u8][..]);
+        assert_eq!(&mock.data[..], &[3, 4][..]);
         assert_eq!(1, mock.ended);
     }
 
@@ -318,8 +335,8 @@ mod tests {
         let mock = MockFragmentHandler::default();
         let mut r = AnnexBReader::for_fragment_handler(mock);
         let data = vec![
-            0, 0, 0, 1,    // start-code
-            3,    // NAL data
+            0, 0, 0, 1, // start-code
+            3, 4,    // NAL data
             0x80, // 1 stop-bit + 7 alignment-zero-bits
             0, 0, 3, // cabac_zero_word + emulation_prevention_three_byte
             0, 0, 3, // cabac_zero_word + emulation_prevention_three_byte
@@ -327,7 +344,7 @@ mod tests {
         ];
         r.push(&data[..]);
         let mock = r.into_fragment_handler();
-        assert_eq!(&mock.data[..], &[3, 0x80, 0, 0, 3, 0, 0, 3][..]);
+        assert_eq!(&mock.data[..], &[3, 4, 0x80, 0, 0, 3, 0, 0, 3][..]);
         assert_eq!(1, mock.ended);
     }
 
@@ -337,8 +354,8 @@ mod tests {
         let mock = MockFragmentHandler::default();
         let mut r = AnnexBReader::for_fragment_handler(mock);
         let data = vec![
-            0, 0, 0, 1,    // start-code
-            3,    // NAL data
+            0, 0, 0, 1, // start-code
+            3, 4,    // NAL data
             0x80, // 1 stop-bit + 7 alignment-zero-bits
             0,    // trailing_zero_8bits
             0,    // trailing_zero_8bits
@@ -346,7 +363,7 @@ mod tests {
         ];
         r.push(&data[..]);
         let mock = r.into_fragment_handler();
-        assert_eq!(&mock.data[..], &[3, 0x80][..]);
+        assert_eq!(&mock.data[..], &[3, 4, 0x80][..]);
         assert_eq!(1, mock.ended);
     }
 
@@ -356,19 +373,19 @@ mod tests {
         let mock = MockFragmentHandler::default();
         let mut r = AnnexBReader::for_fragment_handler(mock);
         let data = vec![
-            0, 0, 0, 1,    // start-code
-            3,    // NAL data
+            0, 0, 0, 1, // start-code
+            3, 4,    // NAL data
             0x80, // 1 stop-bit + 7 alignment-zero-bits
             0, 0, 0,  // trailing_zero_8bits
             42, // unexpected byte
             0, 0, 1, // start-code
-            2, 3,    // NAL data
+            2, 3, 4,    // NAL data
             0x80, // 1 stop-bit + 7 alignment-zero-bits
             0, 0, 1, // start-code
         ];
         r.push(&data[..]);
         let mock = r.into_fragment_handler();
-        assert_eq!(&mock.data[..], &[3, 0x80, 2, 3, 0x80][..]);
+        assert_eq!(&mock.data[..], &[3, 4, 0x80, 2, 3, 4, 0x80]);
         assert_eq!(2, mock.ended);
     }
 
@@ -378,12 +395,12 @@ mod tests {
         let mut r = AnnexBReader::for_fragment_handler(mock);
         let data = vec![
             0, 0, 0, 1, // start-code
-            3, 0, // NAL data
+            3, 4, 0, // NAL data
         ];
         r.push(&data[..]);
         r.reset();
         let mock = r.into_fragment_handler();
-        assert_eq!(&mock.data[..], &[3u8, 0u8][..]);
+        assert_eq!(&mock.data[..], &[3, 4, 0]);
         assert_eq!(1, mock.ended);
     }
 
@@ -393,19 +410,20 @@ mod tests {
         let mut r = AnnexBReader::for_fragment_handler(mock);
         let data = vec![
             0, 0, 0, 1, // start-code
-            2, 3, // NAL data
+            2, 3, 4, // NAL data
             0, 0, 1, // nd-code
         ];
-        r.push(&data[..5]); // half-way through the NAL Unit
+        r.push(&data[..6]); // half-way through the NAL Unit (including both header bytes)
         let mock = r.fragment_handler_ref();
-        assert_eq!(&mock.data[..], &[2u8][..]);
+        assert_eq!(&mock.data, &[2, 3]);
         assert_eq!(0, mock.ended);
-        r.push(&data[5..]); // second half of the NAL Unit
+        r.push(&data[6..]); // second half of the NAL Unit
         let mock = r.fragment_handler_ref();
-        assert_eq!(&mock.data[..], &[2u8, 3u8][..]);
+        assert_eq!(&mock.data, &[2, 3, 4]);
         assert_eq!(1, mock.ended);
     }
 
+    /*
     #[test]
     fn split_large() {
         let data = hex!(
@@ -596,5 +614,5 @@ mod tests {
         assert_eq!(3, mock.ended);
         assert_eq!(&mock.data[..], &expected[..]);
     }
+    */
 }
-*/
