@@ -556,18 +556,18 @@ pub struct SubLayerSubPicHrdParams {
     pub bit_rate_du_value_minus1: u32,
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct SubLayerHrdParameter {
+pub struct SubLayerHrdParameters {
     pub bit_rate_value_minus1: u32,
     pub cpb_size_value_minus1: u32,
     pub sub_pic_hrd_params: Option<SubLayerSubPicHrdParams>,
     pub cbr_flag: bool,
 }
-impl SubLayerHrdParameter {
+impl SubLayerHrdParameters {
     fn read<R: BitRead>(
         r: &mut R,
         sub_pic_hrd_params_present: bool,
     ) -> Result<Self, BitReaderError> {
-        Ok(SubLayerHrdParameter {
+        Ok(SubLayerHrdParameters {
             bit_rate_value_minus1: r.read_ue("bit_rate_value_minus1")?,
             cpb_size_value_minus1: r.read_ue("cpb_size_value_minus1")?,
             sub_pic_hrd_params: if sub_pic_hrd_params_present {
@@ -583,19 +583,19 @@ impl SubLayerHrdParameter {
     }
 }
 
-// The syntax here is a bit messy, so intial version doesn't
+// The syntax here is a bit messy, so initial version doesn't
 // split optional fields in subtypes. Make better types if needed.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct LayerHrdParameters {
+pub struct SubLayerHrdParametersContainer {
     pub fixed_pic_rate_general_flag: bool,
     pub fixed_pic_rate_within_cvs_flag: bool, // valid iff !fixed_pic_rate_general_flag
     pub elemental_duration_in_tc_minus1: u32, // valid iff fixed_pic_rate_within_cvs_flag
     pub low_delay_hrd_flag: bool,             // valid iff !fixed_pic_rate_within_cvs_flag
     pub cpb_cnt_minus1: u32,                  // valid iff !low_delay_hrd_flag
-    pub nal_hrd_parameters: Option<Vec<SubLayerHrdParameter>>,
-    pub vcl_hrd_parameters: Option<Vec<SubLayerHrdParameter>>,
+    pub nal_hrd_parameters: Option<Vec<SubLayerHrdParameters>>,
+    pub vcl_hrd_parameters: Option<Vec<SubLayerHrdParameters>>,
 }
-impl LayerHrdParameters {
+impl SubLayerHrdParametersContainer {
     fn read<R: BitRead>(
         r: &mut R,
         nal_hrd_parameters_present: bool,
@@ -622,7 +622,7 @@ impl LayerHrdParameters {
         // TODO: default value for cpb_cnt_minus1? (ie if low_delay_hrd_flag)
         let nal_hrd_parameters = if nal_hrd_parameters_present {
             let params: Result<Vec<_>, _> = (0..=cpb_cnt_minus1)
-                .map(|_| SubLayerHrdParameter::read(r, sub_pic_hrd_parameters_present))
+                .map(|_| SubLayerHrdParameters::read(r, sub_pic_hrd_parameters_present))
                 .collect();
             Some(params?)
         } else {
@@ -630,14 +630,14 @@ impl LayerHrdParameters {
         };
         let vcl_hrd_parameters = if vcl_hrd_parameters_present {
             let params: Result<Vec<_>, _> = (0..=cpb_cnt_minus1)
-                .map(|_| SubLayerHrdParameter::read(r, sub_pic_hrd_parameters_present))
+                .map(|_| SubLayerHrdParameters::read(r, sub_pic_hrd_parameters_present))
                 .collect();
             Some(params?)
         } else {
             None
         };
 
-        Ok(LayerHrdParameters {
+        Ok(SubLayerHrdParametersContainer {
             fixed_pic_rate_general_flag,
             fixed_pic_rate_within_cvs_flag,
             elemental_duration_in_tc_minus1,
@@ -653,7 +653,7 @@ impl LayerHrdParameters {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HrdParameters {
     pub common: Option<HrdParametersCommonInf>,
-    pub layers: Vec<LayerHrdParameters>,
+    pub sub_layers: Vec<SubLayerHrdParametersContainer>,
 }
 impl HrdParameters {
     fn read<R: BitRead>(
@@ -668,7 +668,7 @@ impl HrdParameters {
             } else {
                 None
             };
-            let mut layers = Vec::with_capacity(usize::from(max_num_sub_layers_minus1) + 1);
+            let mut sub_layers = Vec::with_capacity(usize::from(max_num_sub_layers_minus1) + 1);
             let nal_hrd_params = common
                 .as_ref()
                 .map_or(false, |c| c.nal_hrd_parameters_present_flag);
@@ -681,14 +681,14 @@ impl HrdParameters {
                 .map(|p| p.sub_pic_hrd_params.is_some())
                 .unwrap_or(false);
             for _ in 0..=max_num_sub_layers_minus1 {
-                layers.push(LayerHrdParameters::read(
+                sub_layers.push(SubLayerHrdParametersContainer::read(
                     r,
                     nal_hrd_params,
                     vcl_hrd_params,
                     sub_pic_hrd_params, // TODO: default values?
                 )?);
             }
-            Some(Self { common, layers })
+            Some(Self { common, sub_layers })
         } else {
             None
         })
