@@ -1226,14 +1226,17 @@ impl Pcm {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ShortTermRef {
-    delta_poc_minus1: i32,
-    used_by_curr_pic_flag: bool,
+    /// Value read from NAL when inter_ref_pic_set_prediction_flag == 0
+    pub delta_poc_minus1: Option<u32>,
+    /// Calculated value "DeltaPocS0[i][j]" or "DeltaPocS1[i][j]"
+    pub delta_poc: i32,
+    pub used_by_curr_pic_flag: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ShortTermRefPicSet {
-    negative_pics_s0: Vec<ShortTermRef>,
-    positive_pics_s1: Vec<ShortTermRef>,
+    pub negative_pics_s0: Vec<ShortTermRef>,
+    pub positive_pics_s1: Vec<ShortTermRef>,
 }
 impl ShortTermRefPicSet {
     fn num_negative_pics(&self) -> usize {
@@ -1279,8 +1282,8 @@ impl ShortTermRefPicSet {
                 .unwrap();
 
             // Read used_by_curr_pic_flag[j] and use_delta_flag[j]
-            let mut used_by_curr_pic = Vec::with_capacity(ref_rps.num_delta_pocs());
-            let mut use_delta = Vec::with_capacity(ref_rps.num_delta_pocs());
+            let mut used_by_curr_pic = Vec::with_capacity(ref_rps.num_delta_pocs() + 1);
+            let mut use_delta = Vec::with_capacity(ref_rps.num_delta_pocs() + 1);
             for _j in 0..=ref_rps.num_delta_pocs() {
                 let used_by_curr_pic_flag = r.read_bool("used_by_curr_pic_flag")?;
                 let use_delta_flag = if !used_by_curr_pic_flag {
@@ -1306,11 +1309,11 @@ impl ShortTermRefPicSet {
             //   }
             let mut negative_pics_s0 = Vec::new();
             for j in (0..ref_rps.num_positive_pics()).rev() {
-                let delta_poc_s1 = ref_rps.positive_pics_s1[j].delta_poc_minus1 + 1;
-                let d_poc = delta_poc_s1 + delta_rps;
+                let d_poc = ref_rps.positive_pics_s1[j].delta_poc + delta_rps;
                 if d_poc < 0 && use_delta[ref_rps.num_negative_pics() + j] {
                     negative_pics_s0.push(ShortTermRef {
-                        delta_poc_minus1: d_poc - 1,
+                        delta_poc_minus1: None,
+                        delta_poc: d_poc,
                         used_by_curr_pic_flag: used_by_curr_pic[ref_rps.num_negative_pics() + j],
                     });
                 }
@@ -1321,7 +1324,8 @@ impl ShortTermRefPicSet {
             // }
             if delta_rps < 0 && use_delta[ref_rps.num_delta_pocs()] {
                 negative_pics_s0.push(ShortTermRef {
-                    delta_poc_minus1: delta_rps - 1,
+                    delta_poc_minus1: None,
+                    delta_poc: delta_rps,
                     used_by_curr_pic_flag: used_by_curr_pic[ref_rps.num_delta_pocs()],
                 });
             }
@@ -1334,11 +1338,11 @@ impl ShortTermRefPicSet {
             // }
             // NumNegativePics[ stRpsIdx ] = i
             for j in 0..ref_rps.num_negative_pics() {
-                let delta_poc_s0 = ref_rps.negative_pics_s0[j].delta_poc_minus1 + 1;
-                let d_poc = delta_poc_s0 + delta_rps;
+                let d_poc = ref_rps.negative_pics_s0[j].delta_poc + delta_rps;
                 if d_poc < 0 && use_delta[j] {
                     negative_pics_s0.push(ShortTermRef {
-                        delta_poc_minus1: d_poc - 1,
+                        delta_poc_minus1: None,
+                        delta_poc: d_poc,
                         used_by_curr_pic_flag: used_by_curr_pic[j],
                     });
                 }
@@ -1354,11 +1358,11 @@ impl ShortTermRefPicSet {
             // }
             let mut positive_pics_s1 = Vec::new();
             for j in (0..ref_rps.num_negative_pics()).rev() {
-                let delta_poc_s0 = ref_rps.negative_pics_s0[j].delta_poc_minus1 + 1;
-                let d_poc = delta_poc_s0 + delta_rps;
+                let d_poc = ref_rps.negative_pics_s0[j].delta_poc + delta_rps;
                 if d_poc > 0 && use_delta[j] {
                     positive_pics_s1.push(ShortTermRef {
-                        delta_poc_minus1: d_poc - 1,
+                        delta_poc_minus1: None,
+                        delta_poc: d_poc,
                         used_by_curr_pic_flag: used_by_curr_pic[j],
                     });
                 }
@@ -1369,7 +1373,8 @@ impl ShortTermRefPicSet {
             // }
             if delta_rps > 0 && use_delta[ref_rps.num_delta_pocs()] {
                 positive_pics_s1.push(ShortTermRef {
-                    delta_poc_minus1: delta_rps - 1,
+                    delta_poc_minus1: None,
+                    delta_poc: delta_rps,
                     used_by_curr_pic_flag: used_by_curr_pic[ref_rps.num_delta_pocs()],
                 });
             }
@@ -1383,11 +1388,11 @@ impl ShortTermRefPicSet {
             // }
             // NumPositivePics[ stRpsIdx ] = i
             for j in 0..ref_rps.num_positive_pics() {
-                let delta_poc_s1 = ref_rps.positive_pics_s1[j].delta_poc_minus1 + 1;
-                let d_poc = delta_poc_s1 + delta_rps;
+                let d_poc = ref_rps.positive_pics_s1[j].delta_poc + delta_rps;
                 if d_poc > 0 && use_delta[ref_rps.num_negative_pics() + j] {
                     positive_pics_s1.push(ShortTermRef {
-                        delta_poc_minus1: d_poc - 1,
+                        delta_poc_minus1: None,
+                        delta_poc: d_poc,
                         used_by_curr_pic_flag: used_by_curr_pic[ref_rps.num_negative_pics() + j],
                     });
                 }
@@ -1401,21 +1406,25 @@ impl ShortTermRefPicSet {
             // TODO: "the value of num_negative_pics shall be in the range of 0 to sps_max_dec_pic_buffering_minus1[ sps_max_sub_layers_minus1 ], inclusive."
             let num_negative_pics = r.read_ue("num_negative_pics")?;
             let num_positive_pics = r.read_ue("num_positive_pics")?;
-            let mut negative_pics_s0 = Vec::new();
+            let mut negative_pics_s0: Vec<ShortTermRef> = Vec::new();
             for _ in 0..num_negative_pics {
                 let delta_poc_s0_minus1 = r.read_ue("delta_poc_s0_minus1")?;
                 let used_by_curr_pic_s0_flag = r.read_bool("used_by_curr_pic_s0_flag")?;
+                let last_delta_poc = negative_pics_s0.last().map(|r| r.delta_poc).unwrap_or(0);
                 negative_pics_s0.push(ShortTermRef {
-                    delta_poc_minus1: delta_poc_s0_minus1 as i32,
+                    delta_poc_minus1: Some(delta_poc_s0_minus1),
+                    delta_poc: last_delta_poc - (delta_poc_s0_minus1 as i32 + 1),
                     used_by_curr_pic_flag: used_by_curr_pic_s0_flag,
                 });
             }
-            let mut positive_pics_s1 = Vec::new();
+            let mut positive_pics_s1: Vec<ShortTermRef> = Vec::new();
             for _ in 0..num_positive_pics {
                 let delta_poc_s1_minus1 = r.read_ue("delta_poc_s1_minus1")?;
                 let used_by_curr_pic_s1_flag = r.read_bool("used_by_curr_pic_s1_flag")?;
+                let last_delta_poc = positive_pics_s1.last().map(|r| r.delta_poc).unwrap_or(0);
                 positive_pics_s1.push(ShortTermRef {
-                    delta_poc_minus1: delta_poc_s1_minus1 as i32,
+                    delta_poc_minus1: Some(delta_poc_s1_minus1),
+                    delta_poc: last_delta_poc + delta_poc_s1_minus1 as i32 + 1,
                     used_by_curr_pic_flag: used_by_curr_pic_s1_flag,
                 });
             }
@@ -1968,7 +1977,11 @@ mod test {
             pcm: None,
             st_ref_pic_sets: vec![
                 ShortTermRefPicSet {
-                    negative_pics_s0: vec![ShortTermRef { delta_poc_minus1: 0, used_by_curr_pic_flag: true }],
+                    negative_pics_s0: vec![ShortTermRef {
+                        delta_poc_minus1: Some(0),
+                        delta_poc: -1,
+                        used_by_curr_pic_flag: true
+                    }],
                     positive_pics_s1: vec![],
                 },
             ],
@@ -2414,15 +2427,18 @@ mod test {
                 ShortTermRefPicSet {
                     negative_pics_s0: vec![
                         ShortTermRef {
-                            delta_poc_minus1: 3,
+                            delta_poc_minus1: Some(3),
+                            delta_poc: -4,
                             used_by_curr_pic_flag: true,
                         },
                         ShortTermRef {
-                            delta_poc_minus1: 3,
+                            delta_poc_minus1: Some(3),
+                            delta_poc: -8,
                             used_by_curr_pic_flag: true,
                         },
                         ShortTermRef {
-                            delta_poc_minus1: 3,
+                            delta_poc_minus1: Some(3),
+                            delta_poc: -12,
                             used_by_curr_pic_flag: true,
                         },
                     ],
@@ -2431,60 +2447,67 @@ mod test {
                 ShortTermRefPicSet {
                     negative_pics_s0: vec![
                         ShortTermRef {
-                            delta_poc_minus1: -2,
+                            delta_poc_minus1: None,
+                            delta_poc: -1,
                             used_by_curr_pic_flag: true,
                         },
-                    ],
-                    positive_pics_s1: vec![
                         ShortTermRef {
-                            delta_poc_minus1: 2,
+                            delta_poc_minus1: None,
+                            delta_poc: -5,
+                            used_by_curr_pic_flag: true,
+                        },
+                        ShortTermRef {
+                            delta_poc_minus1: None,
+                            delta_poc: -9,
                             used_by_curr_pic_flag: false,
                         },
-                        ShortTermRef {
-                            delta_poc_minus1: 2,
-                            used_by_curr_pic_flag: true,
-                        },
                     ],
+                    positive_pics_s1: vec![],
                 },
                 ShortTermRefPicSet {
                     negative_pics_s0: vec![
                         ShortTermRef {
-                            delta_poc_minus1: -3,
-                            used_by_curr_pic_flag: true,
-                        },
-                    ],
-                    positive_pics_s1: vec![
-                        ShortTermRef {
-                            delta_poc_minus1: 1,
+                            delta_poc_minus1: None,
+                            delta_poc: -2,
                             used_by_curr_pic_flag: true,
                         },
                         ShortTermRef {
-                            delta_poc_minus1: 1,
+                            delta_poc_minus1: None,
+                            delta_poc: -6,
+                            used_by_curr_pic_flag: true,
+                        },
+                        ShortTermRef {
+                            delta_poc_minus1: None,
+                            delta_poc: -10,
                             used_by_curr_pic_flag: false,
                         },
                     ],
+                    positive_pics_s1: vec![],
                 },
                 ShortTermRefPicSet {
                     negative_pics_s0: vec![
                         ShortTermRef {
-                            delta_poc_minus1: -2,
+                            delta_poc_minus1: None,
+                            delta_poc: -1,
                             used_by_curr_pic_flag: true,
                         },
                         ShortTermRef {
-                            delta_poc_minus1: -4,
+                            delta_poc_minus1: None,
+                            delta_poc: -3,
                             used_by_curr_pic_flag: true,
                         },
-                    ],
-                    positive_pics_s1: vec![
                         ShortTermRef {
-                            delta_poc_minus1: 0,
+                            delta_poc_minus1: None,
+                            delta_poc: -7,
                             used_by_curr_pic_flag: false,
                         },
                         ShortTermRef {
-                            delta_poc_minus1: 0,
+                            delta_poc_minus1: None,
+                            delta_poc: -11,
                             used_by_curr_pic_flag: false,
                         },
                     ],
+                    positive_pics_s1: vec![],
                 },
             ],
             long_term_ref_pics_sps: None,
