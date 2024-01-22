@@ -1225,55 +1225,218 @@ impl Pcm {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ShortTermRefPicSet; // TODO: contents
+pub struct ShortTermRef {
+    delta_poc_minus1: i32,
+    used_by_curr_pic_flag: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShortTermRefPicSet {
+    negative_pics_s0: Vec<ShortTermRef>,
+    positive_pics_s1: Vec<ShortTermRef>,
+}
 impl ShortTermRefPicSet {
+    fn num_negative_pics(&self) -> usize {
+        self.negative_pics_s0.len()
+    }
+    fn num_positive_pics(&self) -> usize {
+        self.positive_pics_s1.len()
+    }
+    fn num_delta_pocs(&self) -> usize {
+        self.num_negative_pics() + self.num_positive_pics()
+    }
+
     fn read<R: BitRead>(
         r: &mut R,
         st_rps_idx: u32,
         num_short_term_ref_pic_sets: u32,
+        prev_sets: &[Self],
     ) -> Result<Self, SpsError> {
+        // TODO: there's probably a lot of both simplification and optimization potential here
+
         let inter_ref_pic_set_prediction_flag = if st_rps_idx == 0 {
             false // TODO: default for i==0?
         } else {
             r.read_bool("inter_ref_pic_set_prediction_flag")?
         };
         if inter_ref_pic_set_prediction_flag {
-            if st_rps_idx == num_short_term_ref_pic_sets {
-                let _delta_idx_minus1 = r.read_ue("delta_idx_minus1")?;
-            }
-            let _delta_rps_sign = r.read_bool("delta_rps_sign")?;
-            let _abs_delta_rps_minus1 = r.read_ue("abs_delta_rps_minus1")?;
+            // TODO: "The value of delta_idx_minus1 shall be in the range of 0 to stRpsIdx − 1, inclusive."
+            let delta_idx_minus1 = if st_rps_idx == num_short_term_ref_pic_sets {
+                r.read_ue("delta_idx_minus1")?
+            } else {
+                0
+            };
+            let delta_rps_sign = i32::from(r.read_bool("delta_rps_sign")?);
+            let abs_delta_rps_minus1 = i32::try_from(r.read_ue("abs_delta_rps_minus1")?)
+                .expect("abs_delta_rps_minus1 out of range");
+            // TODO: "The value of abs_delta_rps_minus1 shall be in the range of 0 to 2^15 − 1,"
 
-            // RefRpsIdx = stRpsIdx − ( delta_idx_minus1 + 1 )
-            // NumDeltaPocs[ stRpsIdx ] = NumNegativePics[ stRpsIdx ] + NumPositivePics[ stRpsIdx ]
-            return Err(SpsError::Unimplemented("num_delta_pics[ref_rps_idx]"));
-            /*
-            for j in 0..=num_delta_pocs[ref_rps_idx] {
+            let ref_rps_idx = st_rps_idx - (delta_idx_minus1 + 1);
+            let delta_rps = (1 - 2 * delta_rps_sign) * (abs_delta_rps_minus1 + 1);
+            // ref_rps.xyz here is equivalent to Xyz[ RefRpsIdx ] in spec
+            let ref_rps = &prev_sets
+                .get(usize::try_from(ref_rps_idx).unwrap())
+                .unwrap();
+
+            // Read used_by_curr_pic_flag[j] and use_delta_flag[j]
+            let mut used_by_curr_pic = Vec::with_capacity(ref_rps.num_delta_pocs());
+            let mut use_delta = Vec::with_capacity(ref_rps.num_delta_pocs());
+            for _j in 0..=ref_rps.num_delta_pocs() {
                 let used_by_curr_pic_flag = r.read_bool("used_by_curr_pic_flag")?;
-                if used_by_curr_pic_flag {
-                    let _use_delta_flag = r.read_bool("use_delta_flag")?;
+                let use_delta_flag = if used_by_curr_pic_flag {
+                    r.read_bool("use_delta_flag")?
+                } else {
+                    true
+                };
+                used_by_curr_pic.push(used_by_curr_pic_flag);
+                use_delta.push(use_delta_flag);
+            }
+
+            // This algorithm is translated from the spec
+            // TODO: a lot of (indexing) validation is missing here,
+            // so we are much more panicky than we should be.
+            //
+            // i=0
+            // for( j = NumPositivePics[ RefRpsIdx ] − 1; j >= 0; j−− ) {
+            //   dPoc = DeltaPocS1[ RefRpsIdx ][ j ] + deltaRps
+            //   if( dPoc < 0 && use_delta_flag[ NumNegativePics[ RefRpsIdx ] + j ] ) {
+            //     DeltaPocS0[ stRpsIdx ][ i ] = dPoc
+            //     UsedByCurrPicS0[ stRpsIdx ][ i++ ] =
+            //     used_by_curr_pic_flag[ NumNegativePics[ RefRpsIdx ] + j ]
+            //   }
+            let mut negative_pics_s0 = Vec::new();
+            for j in (0..ref_rps.num_positive_pics()).rev() {
+                let delta_poc_s1 = ref_rps.positive_pics_s1[j].delta_poc_minus1 + 1;
+                let d_poc = delta_poc_s1 + delta_rps;
+                if d_poc < 0 && use_delta[ref_rps.num_negative_pics() + j] {
+                    negative_pics_s0.push(ShortTermRef {
+                        delta_poc_minus1: d_poc - 1,
+                        used_by_curr_pic_flag: used_by_curr_pic[ref_rps.num_negative_pics() + j],
+                    });
                 }
             }
-            */
+            // if( deltaRps < 0 && use_delta_flag[ NumDeltaPocs[ RefRpsIdx ] ] ) { // (7-61)
+            //    DeltaPocS0[ stRpsIdx ][ i ] = deltaRps
+            //    UsedByCurrPicS0[ stRpsIdx ][ i++ ] = used_by_curr_pic_flag[ NumDeltaPocs[ RefRpsIdx ] ]
+            // }
+            if delta_rps < 0 && use_delta[ref_rps.num_delta_pocs()] {
+                negative_pics_s0.push(ShortTermRef {
+                    delta_poc_minus1: delta_rps - 1,
+                    used_by_curr_pic_flag: used_by_curr_pic[ref_rps.num_delta_pocs()],
+                });
+            }
+            // for( j = 0; j < NumNegativePics[ RefRpsIdx ]; j++ ) {
+            //   dPoc = DeltaPocS0[ RefRpsIdx ][ j ] + deltaRps
+            //   if( dPoc < 0 && use_delta_flag[ j ] ) {
+            //     DeltaPocS0[ stRpsIdx ][ i ] = dPoc
+            //     UsedByCurrPicS0[ stRpsIdx ][ i++ ] = used_by_curr_pic_flag[ j ]
+            //   }
+            // }
+            // NumNegativePics[ stRpsIdx ] = i
+            for j in 0..ref_rps.num_negative_pics() {
+                let delta_poc_s0 = ref_rps.negative_pics_s0[j].delta_poc_minus1 + 1;
+                let d_poc = delta_poc_s0 + delta_rps;
+                if d_poc < 0 && use_delta[j] {
+                    negative_pics_s0.push(ShortTermRef {
+                        delta_poc_minus1: d_poc - 1,
+                        used_by_curr_pic_flag: used_by_curr_pic[j],
+                    });
+                }
+            }
+
+            // i=0
+            // for( j = NumNegativePics[ RefRpsIdx ] − 1; j >= 0; j−− ) {
+            //   dPoc = DeltaPocS0[ RefRpsIdx ][ j ] + deltaRps
+            //   if( dPoc > 0 && use_delta_flag[ j ] ) {
+            //     DeltaPocS1[ stRpsIdx ][ i ] = dPoc
+            //     UsedByCurrPicS1[ stRpsIdx ][ i++ ] = used_by_curr_pic_flag[ j ]
+            //   }
+            // }
+            let mut positive_pics_s1 = Vec::new();
+            for j in (0..ref_rps.num_negative_pics()).rev() {
+                let delta_poc_s0 = ref_rps.negative_pics_s0[j].delta_poc_minus1 + 1;
+                let d_poc = delta_poc_s0 + delta_rps;
+                if d_poc > 0 && use_delta[j] {
+                    positive_pics_s1.push(ShortTermRef {
+                        delta_poc_minus1: d_poc - 1,
+                        used_by_curr_pic_flag: used_by_curr_pic[j],
+                    });
+                }
+            }
+            // if( deltaRps > 0 && use_delta_flag[ NumDeltaPocs[ RefRpsIdx ] ] ) { ( // 7-62)
+            //   DeltaPocS1[ stRpsIdx ][ i ] = deltaRps
+            //   UsedByCurrPicS1[ stRpsIdx ][ i++ ] = used_by_curr_pic_flag[ NumDeltaPocs[ RefRpsIdx ] ]
+            // }
+            if delta_rps > 0 && use_delta[ref_rps.num_delta_pocs()] {
+                positive_pics_s1.push(ShortTermRef {
+                    delta_poc_minus1: delta_rps - 1,
+                    used_by_curr_pic_flag: used_by_curr_pic[ref_rps.num_delta_pocs()],
+                });
+            }
+            // for( j = 0; j < NumPositivePics[ RefRpsIdx ]; j++) {
+            //   dPoc = DeltaPocS1[ RefRpsIdx ][ j ] + deltaRps
+            //   if( dPoc > 0 && use_delta_flag[ NumNegativePics[ RefRpsIdx ] + j ] ) {
+            //     DeltaPocS1[ stRpsIdx ][ i ] = dPoc
+            //     UsedByCurrPicS1[ stRpsIdx ][ i++ ] =
+            //     used_by_curr_pic_flag[ NumNegativePics[ RefRpsIdx ] + j ]
+            //   }
+            // }
+            // NumPositivePics[ stRpsIdx ] = i
+            for j in 0..ref_rps.num_positive_pics() {
+                let delta_poc_s1 = ref_rps.positive_pics_s1[j].delta_poc_minus1 + 1;
+                let d_poc = delta_poc_s1 + delta_rps;
+                if d_poc > 0 && use_delta[ref_rps.num_negative_pics() + j] {
+                    positive_pics_s1.push(ShortTermRef {
+                        delta_poc_minus1: d_poc - 1,
+                        used_by_curr_pic_flag: used_by_curr_pic[ref_rps.num_negative_pics() + j],
+                    });
+                }
+            }
+
+            Ok(ShortTermRefPicSet {
+                negative_pics_s0,
+                positive_pics_s1,
+            })
         } else {
+            // TODO: "the value of num_negative_pics shall be in the range of 0 to sps_max_dec_pic_buffering_minus1[ sps_max_sub_layers_minus1 ], inclusive."
             let num_negative_pics = r.read_ue("num_negative_pics")?;
             let num_positive_pics = r.read_ue("num_positive_pics")?;
+            let mut negative_pics_s0 = Vec::new();
             for _ in 0..num_negative_pics {
-                let _delta_poc_s0_minus1 = r.read_ue("delta_pic_s0_minus1")?;
-                let _used_by_curr_pic_s0_flag = r.read_bool("used_by_curr_pic_s0_flag")?;
+                let delta_poc_s0_minus1 = r.read_ue("delta_poc_s0_minus1")?;
+                let used_by_curr_pic_s0_flag = r.read_bool("used_by_curr_pic_s0_flag")?;
+                negative_pics_s0.push(ShortTermRef {
+                    delta_poc_minus1: delta_poc_s0_minus1 as i32,
+                    used_by_curr_pic_flag: used_by_curr_pic_s0_flag,
+                });
             }
+            let mut positive_pics_s1 = Vec::new();
             for _ in 0..num_positive_pics {
-                let _delta_poc_s1_minus1 = r.read_ue("delta_pic_s1_minus1")?;
-                let _used_by_curr_pic_s1_flag = r.read_bool("used_by_curr_pic_s1_flag")?;
+                let delta_poc_s1_minus1 = r.read_ue("delta_poc_s1_minus1")?;
+                let used_by_curr_pic_s1_flag = r.read_bool("used_by_curr_pic_s1_flag")?;
+                positive_pics_s1.push(ShortTermRef {
+                    delta_poc_minus1: delta_poc_s1_minus1 as i32,
+                    used_by_curr_pic_flag: used_by_curr_pic_s1_flag,
+                });
             }
-        }
 
-        Ok(ShortTermRefPicSet)
+            Ok(ShortTermRefPicSet {
+                negative_pics_s0,
+                positive_pics_s1,
+            })
+        }
     }
 
     pub fn read_with_count<R: BitRead>(r: &mut R) -> Result<Vec<Self>, SpsError> {
+        // TODO: "The value of num_short_term_ref_pic_sets shall be in the range of 0 to 64, inclusive."
+        //       (so we can use arrayvec here)
         let num = r.read_ue("num_short_term_ref_pic_sets")?;
-        (0..num).map(|i| Self::read(r, i, num)).collect()
+        let mut sets = Vec::new();
+        for i in 0..num {
+            let next_set = Self::read(r, i, num, &sets)?;
+            sets.push(next_set);
+        }
+        Ok(sets)
     }
 }
 
@@ -1804,7 +1967,10 @@ mod test {
             sample_adaptive_offset_enabled: false,
             pcm: None,
             st_ref_pic_sets: vec![
-                ShortTermRefPicSet,
+                ShortTermRefPicSet {
+                    negative_pics_s0: vec![ShortTermRef { delta_poc_minus1: 0, used_by_curr_pic_flag: true }],
+                    positive_pics_s1: vec![],
+                },
             ],
             long_term_ref_pics_sps: None,
             sps_termporal_mvp_enabled: false,
@@ -2115,6 +2281,253 @@ mod test {
         },
         1920, 540, 50.0;
         "Haivision 1080i25"
+    )]
+    #[test_case(
+        vec![0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00, 0x90,
+             0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x7b, 0xa0, 0x03,
+             0xc0, 0x80, 0x10, 0xe5, 0x89, 0x93, 0x92, 0x4c, 0x8a, 0x49,
+             0x24, 0x93, 0xe9, 0xfa, 0x7a, 0xde, 0x02, 0x02, 0x00, 0x00,
+             0x03, 0x00, 0x02, 0x00, 0x00, 0x03, 0x00, 0x64, 0xc3, 0x49,
+             0x4f, 0x3c, 0x00, 0x1e, 0x84, 0x80, 0x03, 0xd0, 0x91],
+        SeqParameterSet {
+            sps_video_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
+            sps_max_sub_layers_minus1: 0,
+            sps_temporal_id_nesting: true,
+            profile_tier_level: ProfileTierLevel {
+                general_profile: Some(
+                    LayerProfile {
+                        profile_space: 0,
+                        tier_flag: false,
+                        profile_idc: 1,
+                        profile_compatibility_flag: [
+                            false,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                        ],
+                        progressive_source_flag: true,
+        interlaced_source_flag: false,
+                        non_packed_constraint_flag: false,
+                        frame_only_constraint_flag: true,
+                        max_14bit_constraint_flag: false,
+                        max_12bit_constraint_flag: false,
+                        max_10bit_constraint_flag: false,
+                        max_8bit_constraint_flag: false,
+                        max_422chroma_constraint_flag: false,
+                        max_420chroma_constraint_flag: false,
+                        max_monochrome_constraint_flag: false,
+                        intra_constraint_flag: false,
+                        one_picture_only_constraint_flag: false,
+                        lower_bit_rate_constraint_flag: false,
+                        inbld_flag: false,
+                    },
+                ),
+                general_level_idc: 123,
+                sub_layers: [
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                    SubLayerProfileLevel {
+                        profile: None,
+                        level_idc: None,
+                    },
+                ],
+            },
+            sps_seq_parameter_set_id: ParamSetId::from_u32(0).unwrap(),
+            chroma_info: ChromaInfo {
+                chroma_format: ChromaFormat::YUV420,
+                separate_colour_plane_flag: false,
+            },
+            pic_width_in_luma_samples: 1920,
+            pic_height_in_luma_samples: 1080,
+            conformance_window: None,
+            bit_depth_luma_minus8: 0,
+            bit_depth_chroma_minus8: 0,
+            log2_max_pic_order_cnt_lsb_minus4: 8,
+            sub_layering_ordering_info: vec![
+                LayerInfo {
+                    sps_max_dec_pic_buffering_minus1: 3,
+                    sps_max_num_reorder_pics: 0,
+                    sps_max_latency_increase_plus1: 0,
+                },
+            ],
+            log2_min_luma_coding_block_size_minus3: 0,
+            log2_diff_max_min_luma_coding_block_size: 3,
+            log2_min_luma_transform_block_size_minus2: 0,
+            log2_diff_max_min_luma_transform_block_size: 3,
+            max_transform_hierarchy_depth_inter: 0,
+            max_transform_hierarchy_depth_intra: 0,
+            scaling_list: None,
+            amp_enabled: false,
+            sample_adaptive_offset_enabled: true,
+            pcm: None,
+            st_ref_pic_sets: vec![
+                ShortTermRefPicSet {
+                    negative_pics_s0: vec![
+                        ShortTermRef {
+                            delta_poc_minus1: 3,
+                            used_by_curr_pic_flag: true,
+                        },
+                        ShortTermRef {
+                            delta_poc_minus1: 3,
+                            used_by_curr_pic_flag: true,
+                        },
+                        ShortTermRef {
+                            delta_poc_minus1: 3,
+                            used_by_curr_pic_flag: true,
+                        },
+                    ],
+                    positive_pics_s1: vec![],
+                },
+                ShortTermRefPicSet {
+                    negative_pics_s0: vec![
+                        ShortTermRef {
+                            delta_poc_minus1: -2,
+                            used_by_curr_pic_flag: true,
+                        },
+                    ],
+                    positive_pics_s1: vec![
+                        ShortTermRef {
+                            delta_poc_minus1: 2,
+                            used_by_curr_pic_flag: false,
+                        },
+                    ],
+                },
+                ShortTermRefPicSet {
+                    negative_pics_s0: vec![
+                        ShortTermRef {
+                            delta_poc_minus1: -2,
+                            used_by_curr_pic_flag: false,
+                        },
+                    ],
+                    positive_pics_s1: vec![],
+                },
+                ShortTermRefPicSet {
+                    negative_pics_s0: vec![],
+                    positive_pics_s1: vec![],
+                },
+            ],
+            long_term_ref_pics_sps: Some(
+                vec![],
+            ),
+            sps_termporal_mvp_enabled: false,
+            strong_intra_smoothing_enabled: true,
+            vui_parameters: Some(
+                VuiParameters {
+                    aspect_ratio_info: Some(
+                        AspectRatioInfo::Reserved(128), // TODO: investigate!
+                    ),
+                    overscan_appropriate: OverscanAppropriate::Inappropriate,
+                    video_signal_type: None,
+                    chroma_loc_info: None,
+                    neutral_chroma_indication_flag: false,
+                    field_seq_flag: false,
+                    frame_field_info_present_flag: false,
+                    default_display_window: None,
+                    timing_info: Some(
+                        TimingInfo {
+                            num_units_in_tick: 1,
+                            time_scale: 50,
+                            num_ticks_poc_diff_one_minus1: None,
+                            hrd_parameters: Some(
+                                HrdParameters {
+                                    common: Some(
+                                        HrdParametersCommonInf {
+                                            nal_hrd_parameters_present_flag: true,
+                                            vcl_hrd_parameters_present_flag: false,
+                                            parameters: Some(
+                                                HrdParametersCommonInfParameters {
+                                                    sub_pic_hrd_params: None,
+                                                    bit_rate_scale: 3,
+                                                    cpb_size_scale: 4,
+                                                    initial_cpb_removal_delay_length_minus1: 18,
+                                                    au_cpb_removal_delay_length_minus1: 19,
+                                                    dpb_output_delay_length_minus1: 25,
+                                                },
+                                            ),
+                                        },
+                                    ),
+                                    sub_layers: vec![
+                                        SubLayerHrdParametersContainer {
+                                            fixed_pic_rate_general_flag: true,
+                                            fixed_pic_rate_within_cvs_flag: true,
+                                            elemental_duration_in_tc_minus1: 0,
+                                            low_delay_hrd_flag: false,
+                                            cpb_cnt_minus1: 0,
+                                            nal_hrd_parameters: Some(
+                                                vec![
+                                                    SubLayerHrdParameters {
+                                                        bit_rate_value_minus1: 15624,
+                                                        cpb_size_value_minus1: 15624,
+                                                        sub_pic_hrd_params: None,
+                                                        cbr_flag: false,
+                                                    },
+                                                ],
+                                            ),
+                                            vcl_hrd_parameters: None,
+                                        },
+                                    ],
+                                },
+                            ),
+                        },
+                    ),
+                    bitstream_restrictions: None,
+                },
+            ),
+            sps_extension: None,
+        },
+
+        1920, 1080, 50.0;
+        "wz265 with rps_prediction"
     )]
     fn test_sps(byts: Vec<u8>, sps: SeqParameterSet, width: u32, height: u32, fps: f64) {
         let sps_rbsp = decode_nal(&byts).unwrap();
