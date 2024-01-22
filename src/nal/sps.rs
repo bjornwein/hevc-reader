@@ -1847,8 +1847,8 @@ mod test {
                                             ),
                                         },
                                     ),
-                                    layers: vec![
-                                        LayerHrdParameters {
+                                    sub_layers: vec![
+                                        SubLayerHrdParametersContainer {
                                             fixed_pic_rate_general_flag: true,
                                             fixed_pic_rate_within_cvs_flag: true,
                                             elemental_duration_in_tc_minus1: 0,
@@ -1856,7 +1856,7 @@ mod test {
                                             cpb_cnt_minus1: 0,
                                             nal_hrd_parameters: Some(
                                                 vec![
-                                                    SubLayerHrdParameter {
+                                                    SubLayerHrdParameters {
                                                         bit_rate_value_minus1: 18749,
                                                         cpb_size_value_minus1: 5999,
                                                         sub_pic_hrd_params: None,
@@ -2073,8 +2073,8 @@ mod test {
                                             ),
                                         },
                                     ),
-                                    layers: vec![
-                                        LayerHrdParameters {
+                                    sub_layers: vec![
+                                        SubLayerHrdParametersContainer {
                                             fixed_pic_rate_general_flag: false,
                                             fixed_pic_rate_within_cvs_flag: false,
                                             elemental_duration_in_tc_minus1: 0,
@@ -2083,7 +2083,7 @@ mod test {
                                             nal_hrd_parameters: None,
                                             vcl_hrd_parameters: Some(
                                                 vec![
-                                                    SubLayerHrdParameter {
+                                                    SubLayerHrdParameters {
                                                         bit_rate_value_minus1: 46874,
                                                         cpb_size_value_minus1: 384374,
                                                         sub_pic_hrd_params: None,
