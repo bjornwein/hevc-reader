@@ -185,15 +185,15 @@ impl<R: BufRead> BufRead for ByteReader<R> {
 /// # use hevc_reader::rbsp::decode_nal;
 /// # use std::borrow::Cow;
 /// # use std::io::ErrorKind;
-/// let nal_with_escape = &b"\x68\x12\x34\x00\x00\x03\x00\x86"[..];
+/// let nal_with_escape = &b"\x68\x00\x12\x34\x00\x00\x03\x00\x86"[..];
 /// assert!(matches!(
 ///     decode_nal(nal_with_escape).unwrap(),
 ///     Cow::Owned(s) if s == &b"\x12\x34\x00\x00\x00\x86"[..]));
 ///
-/// let nal_without_escape = &b"\x68\xE8\x43\x8F\x13\x21\x30"[..];
-/// assert_eq!(decode_nal(nal_without_escape).unwrap(), Cow::Borrowed(&nal_without_escape[1..]));
+/// let nal_without_escape = &b"\x68\x00\xE8\x43\x8F\x13\x21\x30"[..];
+/// assert_eq!(decode_nal(nal_without_escape).unwrap(), Cow::Borrowed(&nal_without_escape[2..]));
 ///
-/// let invalid_nal = &b"\x68\x12\x34\x00\x00\x00\x86"[..];
+/// let invalid_nal = &b"\x68\x00\x12\x34\x00\x00\x00\x86"[..];
 /// assert_eq!(decode_nal(invalid_nal).unwrap_err().kind(), ErrorKind::InvalidData);
 /// ```
 pub fn decode_nal(nal_unit: &[u8]) -> Result<Cow<'_, [u8]>, std::io::Error> {
