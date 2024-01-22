@@ -1255,7 +1255,7 @@ impl ShortTermRefPicSet {
         // TODO: there's probably a lot of both simplification and optimization potential here
 
         let inter_ref_pic_set_prediction_flag = if st_rps_idx == 0 {
-            false // TODO: default for i==0?
+            false
         } else {
             r.read_bool("inter_ref_pic_set_prediction_flag")?
         };
