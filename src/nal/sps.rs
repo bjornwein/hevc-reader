@@ -1283,7 +1283,7 @@ impl ShortTermRefPicSet {
             let mut use_delta = Vec::with_capacity(ref_rps.num_delta_pocs());
             for _j in 0..=ref_rps.num_delta_pocs() {
                 let used_by_curr_pic_flag = r.read_bool("used_by_curr_pic_flag")?;
-                let use_delta_flag = if used_by_curr_pic_flag {
+                let use_delta_flag = if !used_by_curr_pic_flag {
                     r.read_bool("use_delta_flag")?
                 } else {
                     true
@@ -2440,33 +2440,62 @@ mod test {
                             delta_poc_minus1: 2,
                             used_by_curr_pic_flag: false,
                         },
+                        ShortTermRef {
+                            delta_poc_minus1: 2,
+                            used_by_curr_pic_flag: true,
+                        },
+                    ],
+                },
+                ShortTermRefPicSet {
+                    negative_pics_s0: vec![
+                        ShortTermRef {
+                            delta_poc_minus1: -3,
+                            used_by_curr_pic_flag: true,
+                        },
+                    ],
+                    positive_pics_s1: vec![
+                        ShortTermRef {
+                            delta_poc_minus1: 1,
+                            used_by_curr_pic_flag: true,
+                        },
+                        ShortTermRef {
+                            delta_poc_minus1: 1,
+                            used_by_curr_pic_flag: false,
+                        },
                     ],
                 },
                 ShortTermRefPicSet {
                     negative_pics_s0: vec![
                         ShortTermRef {
                             delta_poc_minus1: -2,
+                            used_by_curr_pic_flag: true,
+                        },
+                        ShortTermRef {
+                            delta_poc_minus1: -4,
+                            used_by_curr_pic_flag: true,
+                        },
+                    ],
+                    positive_pics_s1: vec![
+                        ShortTermRef {
+                            delta_poc_minus1: 0,
+                            used_by_curr_pic_flag: false,
+                        },
+                        ShortTermRef {
+                            delta_poc_minus1: 0,
                             used_by_curr_pic_flag: false,
                         },
                     ],
-                    positive_pics_s1: vec![],
-                },
-                ShortTermRefPicSet {
-                    negative_pics_s0: vec![],
-                    positive_pics_s1: vec![],
                 },
             ],
-            long_term_ref_pics_sps: Some(
-                vec![],
-            ),
-            sps_termporal_mvp_enabled: false,
+            long_term_ref_pics_sps: None,
+            sps_termporal_mvp_enabled: true,
             strong_intra_smoothing_enabled: true,
             vui_parameters: Some(
                 VuiParameters {
                     aspect_ratio_info: Some(
-                        AspectRatioInfo::Reserved(128), // TODO: investigate!
+                        AspectRatioInfo::Ratio1_1,
                     ),
-                    overscan_appropriate: OverscanAppropriate::Inappropriate,
+                    overscan_appropriate: OverscanAppropriate::Unspecified,
                     video_signal_type: None,
                     chroma_loc_info: None,
                     neutral_chroma_indication_flag: false,
@@ -2525,6 +2554,7 @@ mod test {
             ),
             sps_extension: None,
         },
+
 
         1920, 1080, 50.0;
         "wz265 with rps_prediction"
