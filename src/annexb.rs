@@ -57,10 +57,10 @@ struct InUnitState {
 ///
 /// // Push a couple NALs. Pushes don't have to match up to Annex B framing.
 /// reader.push(&b"\x00\x00"[..]);
-/// reader.push(&b"\x01\x67\x64\x00\x0A\xAC\x72\x84\x44\x26\x84\x00\x00"[..]);
+/// reader.push(&b"\x01\x42\x00\x64\x00\x0A\xAC\x72\x84\x44\x26\x84\x00\x00"[..]);
 /// reader.push(&b"\x03\x00\x04\x00\x00\x03\x00\xCA\x3C\x48\x96\x11\x80\x00\x00\x01"[..]);
-/// reader.push(&b"\x68"[..]);
-/// reader.push(&b"\xE8\x43\x8F\x13\x21\x30"[..]);
+/// reader.push(&b"\x44"[..]);
+/// reader.push(&b"\x00\xE8\x43\x8F\x13\x21\x30"[..]);
 ///
 /// assert_eq!(calls, &[
 ///     (UnitType::SeqParameterSet, false),

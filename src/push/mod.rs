@@ -59,11 +59,11 @@ pub trait NalFragmentHandler {
 /// });
 ///
 /// // Push a SeqParameterSet in two calls (the latter with two byte slices).
-/// acc.nal_fragment(&[&b"\x67\x64\x00\x0A\xAC\x72\x84\x44\x26\x84\x00\x00\x03"[..]], false);
+/// acc.nal_fragment(&[&b"\x42\x00\x64\x00\x0A\xAC\x72\x84\x44\x26\x84\x00\x00\x03"[..]], false);
 /// acc.nal_fragment(&[&b"\x00"[..], &b"\x04\x00\x00\x03\x00\xCA\x3C\x48\x96\x11\x80"[..]], true);
 ///
 /// // Push a PicParameterSet in two calls.
-/// acc.nal_fragment(&[&b"\x68"[..]], false);
+/// acc.nal_fragment(&[&b"\x44\x00"[..]], false);
 /// acc.nal_fragment(&[&b"\xE8\x43\x8F\x13\x21\x30"[..]], true);
 ///
 /// assert_eq!(calls, &[
@@ -87,9 +87,9 @@ pub trait NalFragmentHandler {
 ///     }
 /// }
 /// let mut acc = NalAccumulator::new(MyHandler(Vec::new()));
-/// acc.nal_fragment(&[&b"\x67\x64\x00\x0A\xAC\x72\x84\x44\x26\x84\x00\x00\x03"[..]], false);
+/// acc.nal_fragment(&[&b"\x42\x00\x64\x00\x0A\xAC\x72\x84\x44\x26\x84\x00\x00\x03"[..]], false);
 /// acc.nal_fragment(&[&b"\x00"[..], &b"\x04\x00\x00\x03\x00\xCA\x3C\x48\x96\x11\x80"[..]], true);
-/// acc.nal_fragment(&[&b"\x68"[..]], false);
+/// acc.nal_fragment(&[&b"\x44\x00"[..]], false);
 /// acc.nal_fragment(&[&b"\xE8\x43\x8F\x13\x21\x30"[..]], true);
 /// assert_eq!(acc.handler().0, &[
 ///     UnitType::SeqParameterSet,

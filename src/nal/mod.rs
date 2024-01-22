@@ -193,7 +193,7 @@ impl fmt::Debug for NalHeader {
 /// use hevc_reader::nal::{Nal, RefNal, UnitType};
 /// use hevc_reader::rbsp::BitRead;
 /// use std::io::{ErrorKind, Read};
-/// let nal_bytes = &b"\x68\x12\x34\x00\x00\x03\x00\x86"[..];
+/// let nal_bytes = &b"\x44\x00\x12\x34\x00\x00\x03\x00\x86"[..];
 /// let nal = RefNal::new(nal_bytes, &[], true);
 ///
 /// // Basic inspection:
@@ -206,13 +206,13 @@ impl fmt::Debug for NalHeader {
 /// assert_eq!(buf, nal_bytes);
 ///
 /// // Reading from a partial NAL:
-/// let partial_nal = RefNal::new(&nal_bytes[0..2], &[], false);
+/// let partial_nal = RefNal::new(&nal_bytes[0..3], &[], false);
 /// assert!(!partial_nal.is_complete());
 /// let mut r = partial_nal.reader();
-/// buf.resize(2, 0u8);
+/// buf.resize(3, 0u8);
 /// r.read_exact(&mut buf).unwrap(); // reading buffered bytes works.
-/// assert_eq!(&buf[..], &b"\x68\x12"[..]);
-/// buf.resize(1, 0u8);
+/// assert_eq!(&buf[..], &b"\x44\x00\x12"[..]);
+/// buf.resize(2, 0u8);
 /// let e = r.read_exact(&mut buf).unwrap_err(); // beyond returns WouldBlock.
 /// assert_eq!(e.kind(), ErrorKind::WouldBlock);
 ///
@@ -222,7 +222,7 @@ impl fmt::Debug for NalHeader {
 /// assert_eq!(buf, &b"\x12\x34\x00\x00\x00\x86"[..]);
 ///
 /// // Reading RBSP bytes of invalid NALs:
-/// let invalid_nal = RefNal::new(&b"\x68\x12\x34\x00\x00\x00\x86"[..], &[], true);
+/// let invalid_nal = RefNal::new(&b"\x68\x00\x12\x34\x00\x00\x00\x86"[..], &[], true);
 /// buf.clear();
 /// assert_eq!(invalid_nal.rbsp_bytes().read_to_end(&mut buf).unwrap_err().kind(),
 ///            ErrorKind::InvalidData);
