@@ -43,7 +43,7 @@ enum ParseState {
 ///
 /// See also [module docs](self).
 ///
-/// Typically used via a [`H265_reader::nal::Nal`]. Returns error on encountering
+/// Typically used via a [`hevc_reader::nal::Nal`]. Returns error on encountering
 /// invalid byte sequences.
 #[derive(Clone)]
 pub struct ByteReader<R: BufRead> {
@@ -182,7 +182,7 @@ impl<R: BufRead> BufRead for ByteReader<R> {
 /// Returns error on invalid byte sequences. Returns a borrowed pointer if possible.
 ///
 /// ```
-/// # use H265_reader::rbsp::decode_nal;
+/// # use hevc_reader::rbsp::decode_nal;
 /// # use std::borrow::Cow;
 /// # use std::io::ErrorKind;
 /// let nal_with_escape = &b"\x68\x12\x34\x00\x00\x03\x00\x86"[..];

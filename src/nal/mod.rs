@@ -190,8 +190,8 @@ impl fmt::Debug for NalHeader {
 ///
 ///
 /// ```
-/// use H265_reader::nal::{Nal, RefNal, UnitType};
-/// use H265_reader::rbsp::BitRead;
+/// use hevc_reader::nal::{Nal, RefNal, UnitType};
+/// use hevc_reader::rbsp::BitRead;
 /// use std::io::{ErrorKind, Read};
 /// let nal_bytes = &b"\x68\x12\x34\x00\x00\x03\x00\x86"[..];
 /// let nal = RefNal::new(nal_bytes, &[], true);

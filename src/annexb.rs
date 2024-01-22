@@ -41,9 +41,9 @@ struct InUnitState {
 /// [NalAccumulator]:
 ///
 /// ```
-/// use H265_reader::annexb::AnnexBReader;
-/// use H265_reader::nal::{Nal, RefNal, UnitType};
-/// use H265_reader::push::NalInterest;
+/// use hevc_reader::annexb::AnnexBReader;
+/// use hevc_reader::nal::{Nal, RefNal, UnitType};
+/// use hevc_reader::push::NalInterest;
 ///
 /// let mut calls = Vec::new();
 /// let mut reader = AnnexBReader::accumulate(|nal: RefNal<'_>| {
